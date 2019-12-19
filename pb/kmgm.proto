@@ -1,0 +1,75 @@
+syntax = "proto3";
+package kmgm;
+option go_package = "pb";
+
+enum AuthenticationType {
+  UNSPECIFIED = 0;
+  ANONYMOUS = 1;
+  BOOTSTRAP_TOKEN = 2;
+  CLIENT_CERT = 3;
+}
+
+message HelloRequest {
+}
+
+message HelloResponse {
+  int32 api_version = 1;
+  AuthenticationType authentication_type = 2;
+  string authenticated_user = 3;
+}
+
+service HelloService {
+  rpc Hello(HelloRequest) returns (HelloResponse);
+}
+
+message GetVersionRequest {
+}
+
+message GetVersionResponse {
+  string version = 1;
+  string commit = 2;
+}
+
+service VersionService {
+  rpc GetVersion(GetVersionRequest) returns (GetVersionResponse);
+}
+
+message DistinguishedName {
+	string common_name = 1;
+	string organization = 2;
+	string organizational_unit = 3;
+	string country = 4;
+	string locality = 5;
+	string province = 6;
+	string street_address = 7;
+	string postal_code = 8;
+}
+
+message Names {
+  // FIXME[P1]: should be plural. see style guide.
+  repeated string dnsname = 1;
+  repeated string ipaddr = 2;
+}
+
+message KeyUsage {
+  uint32 key_usage = 1;
+  repeated uint32 ext_key_usages = 2;
+}
+
+message IssueCertificateRequest {
+  bytes public_key = 1;
+  DistinguishedName subject = 2;
+  Names names = 3;
+  int64 not_after_unixtime = 4;
+
+  KeyUsage key_usage = 5;
+  string profile = 6;
+}
+
+message IssueCertificateResponse {
+  bytes certificate = 1;
+}
+
+service CertificateService {
+  rpc IssueCertificate(IssueCertificateRequest) returns (IssueCertificateResponse);
+}

@@ -1,0 +1,18 @@
+// FIXME[P0]: output cert chain, not just leaf
+
+// FIXME[P1]: setup default CA automatically if not setup
+// FIXME[P1]: remote issue test: check perm
+
+// FIXME[P2]: consistency: Certificate -> Cert
+// FIXME[P2]: Reissue if only expire < threshold
+// FIXME[P2]: make keytype configurable - remote
+// FIXME[P2]: zip / PKCS #12 support
+// FIXME[P2]: rename cli package to action
+
+// FIXME[PX]: [tool] extract pubkey sha256 s
+
+// FIXME[P3]: signal pgrep/ps if cert reissued
+// FIXME[P3]: turn off datetime zap logging unless server or explicitly told so
+// FIXME[P3]: prometheus support
+
+// FIXME[PX]: 
