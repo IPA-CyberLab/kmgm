@@ -1,6 +1,5 @@
 // FIXME[P0]: output cert chain, not just leaf
 
-// FIXME[P1]: setup default CA automatically if not setup
 // FIXME[P1]: remote issue test: check perm
 
 // FIXME[P2]: consistency: Certificate -> Cert
@@ -12,7 +11,6 @@
 // FIXME[PX]: [tool] extract pubkey sha256 s
 
 // FIXME[P3]: signal pgrep/ps if cert reissued
-// FIXME[P3]: turn off datetime zap logging unless server or explicitly told so
 // FIXME[P3]: prometheus support
 
 // FIXME[PX]: 

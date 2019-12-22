@@ -52,7 +52,7 @@ func main() {
 		&cli.StringFlag{
 			Name:    "profile",
 			EnvVars: []string{"KMGM_PROFILE"},
-			Usage:   "Name for the profile to operate against.",
+			Usage:   "Name of the profile to operate against.",
 			Value:   storage.DefaultProfileName,
 		},
 		&cli.StringFlag{

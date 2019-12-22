@@ -2,6 +2,7 @@ package frontend
 
 import (
 	"bytes"
+	"fmt"
 	"net"
 	"strings"
 	"text/template"
@@ -24,7 +25,7 @@ const configTemplateTextPrologue = `
 {{- end -}}
 {{- with .Config -}}
 `
-const configTemplateTextEpilogue = "{{- end -}}"
+const configTemplateTextEpilogue = "{{- end }}\n"
 
 func PrependYamlCommentLiteral(s string) string {
 	var b strings.Builder
@@ -68,16 +69,42 @@ func CallVerifyMethod(cfgI interface{}) error {
 	return nil
 }
 
-func EditStructWithVerifier(fe Frontend, tmpl string, cfg interface{}, VerifyCfg func(cfg interface{}) error) error {
-	tmpltxt := configTemplateTextPrologue + tmpl + configTemplateTextEpilogue
-	configTemplate, err :=
+func makeTemplate(tmplstr string) (*template.Template, error) {
+	tmplstrFull := configTemplateTextPrologue + tmplstr + configTemplateTextEpilogue
+	tmpl, err :=
 		template.New("setupconfig").
 			Funcs(template.FuncMap{
 				"PrependYamlCommentLiteral": PrependYamlCommentLiteral,
 				"IsLoopback":                IsLoopback,
 				"StripBeforeLine":           func() string { return stripBeforeLine },
 			}).
-			Parse(tmpltxt)
+			Parse(tmplstrFull)
+	if err != nil {
+		return nil, err
+	}
+
+	return tmpl, nil
+}
+
+func DumpTemplate(tmplstr string, cfg interface{}) error {
+	tmpl, err := makeTemplate(tmplstr)
+	if err != nil {
+		return err
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, templateContext{Config: cfg}); err != nil {
+		return err
+	}
+
+	if _, err := fmt.Print(buf.String()); err != nil {
+		return err
+	}
+	return nil
+}
+
+func EditStructWithVerifier(fe Frontend, tmplstr string, cfg interface{}, VerifyCfg func(cfg interface{}) error) error {
+	tmpl, err := makeTemplate(tmplstr)
 	if err != nil {
 		return err
 	}
@@ -85,9 +112,10 @@ func EditStructWithVerifier(fe Frontend, tmpl string, cfg interface{}, VerifyCfg
 	tctx := templateContext{Config: cfg}
 
 	var buf bytes.Buffer
-	if err := configTemplate.Execute(&buf, tctx); err != nil {
+	if err := tmpl.Execute(&buf, tctx); err != nil {
 		return err
 	}
+	cfgtxt := buf.String()
 
 	VerifyText := func(src string) (string, error) {
 		if err := yaml.UnmarshalStrict([]byte(src), tctx.Config); err != nil {
@@ -105,7 +133,7 @@ func EditStructWithVerifier(fe Frontend, tmpl string, cfg interface{}, VerifyCfg
 			tctx.ErrorString = err.Error()
 
 			var buf bytes.Buffer
-			if err := configTemplate.Execute(&buf, tctx); err != nil {
+			if err := tmpl.Execute(&buf, tctx); err != nil {
 				// FIXME[P3]: How should we handle template exec error?
 				panic(err)
 			}
@@ -115,7 +143,6 @@ func EditStructWithVerifier(fe Frontend, tmpl string, cfg interface{}, VerifyCfg
 		return src, nil
 	}
 
-	cfgtxt := buf.String()
 	if _, err := fe.EditText(cfgtxt, VerifyText); err != nil {
 		return err
 	}

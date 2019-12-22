@@ -7,6 +7,7 @@ import (
 	"github.com/IPA-CyberLab/kmgm/cli/setup"
 	"github.com/IPA-CyberLab/kmgm/frontend"
 	"github.com/IPA-CyberLab/kmgm/storage"
+	"github.com/IPA-CyberLab/kmgm/structflags"
 )
 
 const configTemplateText = `
@@ -64,7 +65,25 @@ func EnsureCA(env *wcli.Environment, profile *storage.Profile) error {
 var Command = &cli.Command{
 	Name:  "setup",
 	Usage: "Setup Komagome PKI",
+	Flags: append(structflags.MustPopulateFlagsFromStruct(setup.Config{}),
+		&cli.BoolFlag{
+			Name:  "dump-template",
+			Usage: "dump configuration template yaml without making actual changes",
+		},
+	),
 	Action: func(c *cli.Context) error {
+		if c.Bool("dump-template") {
+			cfg, err := setup.DefaultConfig()
+			if err != nil {
+				return err
+			}
+
+			if err := frontend.DumpTemplate(configTemplateText, cfg); err != nil {
+				return err
+			}
+			return nil
+		}
+
 		env := wcli.GlobalEnvironment
 		profile, err := env.Profile()
 		if err != nil {

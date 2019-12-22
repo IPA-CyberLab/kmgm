@@ -8,8 +8,8 @@ import (
 )
 
 type Config struct {
-	KeyType wcrypto.KeyType
-	Subject *dname.Config `yaml:"subject"`
+	Subject *dname.Config   `yaml:"subject" flags:""`
+	KeyType wcrypto.KeyType `yaml:"keyType" flags:"key-type,private key type (rsa&comma; rcdsa),t"`
 }
 
 func DefaultConfig() (*Config, error) {
@@ -19,8 +19,8 @@ func DefaultConfig() (*Config, error) {
 	}
 
 	cfg := &Config{
-		KeyType: wcrypto.KeyRSA4096,
 		Subject: subject,
+		KeyType: wcrypto.KeyRSA4096,
 	}
 	return cfg, nil
 }
