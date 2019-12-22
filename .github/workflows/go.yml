@@ -1,7 +1,7 @@
 on: [push, pull_request]
-name: Test
+name: Run tests
 jobs:
-  test:
+  unit_tests:
     strategy:
       matrix:
         platform: [ubuntu-latest]
