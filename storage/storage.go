@@ -56,7 +56,7 @@ func (s *Storage) Profile(name string) (*Profile, error) {
 		BaseDir: filepath.Join(s.BaseDir, name),
 	}
 	if err := validate.Dir(p.BaseDir); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Failed to open Profile %q: %w", name, err)
 	}
 
 	return p, nil

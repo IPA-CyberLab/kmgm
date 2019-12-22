@@ -214,9 +214,15 @@ func (c *Config) Verify() error {
 var Command = &cli.Command{
 	Name:  "issue",
 	Usage: "Issue a new certificate or renew an existing certificate. Generates private key if needed.",
-	Flags: structflags.MustPopulateFlagsFromStruct(Config{}),
+	Flags: append(structflags.MustPopulateFlagsFromStruct(Config{}),
+		&cli.BoolFlag{
+			Name:  "dump-template",
+			Usage: "dump configuration template yaml without making actual changes",
+		},
+	),
 	Action: func(c *cli.Context) error {
 		env := wcli.GlobalEnvironment
+		slog := env.Logger.Sugar()
 
 		profile, err := env.Profile()
 		if err != nil {
@@ -224,12 +230,19 @@ var Command = &cli.Command{
 		}
 
 		issuecfg, err := issue.DefaultConfig(env)
-		if err != nil {
-			return err
+		// issue.DefaultConfig errors are ignorable.
+		if err != nil && !c.Bool("dump-template") {
+			slog.Debugf("Errors encountered while constructing default config: %v", err)
 		}
 
 		cfg := &Config{
 			Issue: issuecfg,
+		}
+		if c.Bool("dump-template") {
+			if err := frontend.DumpTemplate(ConfigTemplateText, cfg); err != nil {
+				return err
+			}
+			return nil
 		}
 
 		if err := structflags.PopulateStructFromCliContext(cfg, c); err != nil {

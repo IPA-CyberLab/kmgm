@@ -5,12 +5,11 @@ import (
 	"fmt"
 	"os"
 
-	"go.uber.org/zap"
-
 	"github.com/IPA-CyberLab/kmgm/domainname"
 	"github.com/IPA-CyberLab/kmgm/frontend"
 	"github.com/IPA-CyberLab/kmgm/frontend/validate"
 	"github.com/IPA-CyberLab/kmgm/ipapi"
+	"go.uber.org/multierr"
 )
 
 type Config struct {
@@ -26,9 +25,12 @@ type Config struct {
 }
 
 func DefaultConfig(cnsuffix string, basecfg *Config) (*Config, error) {
+	var merr error
+
 	hostname, err := os.Hostname()
 	if err != nil {
-		return nil, fmt.Errorf("os.Hostname: %w", err)
+		merr = multierr.Append(merr, err)
+		hostname = "unknownhost"
 	}
 
 	if basecfg != nil {
@@ -49,7 +51,7 @@ func DefaultConfig(cnsuffix string, basecfg *Config) (*Config, error) {
 
 	geo, err := ipapi.Query()
 	if err != nil {
-		zap.S().Infow("ipapi.Query failed", "err", err)
+		merr = multierr.Append(merr, err)
 		geo = &ipapi.Result{}
 	}
 
@@ -63,7 +65,7 @@ func DefaultConfig(cnsuffix string, basecfg *Config) (*Config, error) {
 		StreetAddress:      "",
 		PostalCode:         "", // geo.Zip, but often not accurate enough
 	}
-	return cfg, nil
+	return cfg, merr
 }
 
 func (cfg *Config) ToPkixName() (n pkix.Name) {
