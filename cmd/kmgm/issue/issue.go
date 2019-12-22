@@ -170,6 +170,8 @@ issue:
   # validity: 2y # valid for 2 years from now.
   # validity: 20220530 # valid until yyyyMMdd.
 
+  keyType: {{ .KeyType }}
+
   # keyUsage specifies the purpose of the key signed.
   keyUsage:
     # Default. The cert can be used for both TLS client and server.
@@ -249,7 +251,7 @@ var Command = &cli.Command{
 			return err
 		}
 
-		if err := setup.EnsureCA(env, profile); err != nil {
+		if err := setup.EnsureCA(env, nil, profile); err != nil {
 			return err
 		}
 

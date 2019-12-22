@@ -14,15 +14,12 @@ type Config struct {
 
 func DefaultConfig() (*Config, error) {
 	subject, err := dname.DefaultConfig(" CA", nil)
-	if err != nil {
-		return nil, err
-	}
 
 	cfg := &Config{
 		Subject: subject,
 		KeyType: wcrypto.KeyRSA4096,
 	}
-	return cfg, nil
+	return cfg, err
 }
 
 func (cfg *Config) Verify() error {

@@ -22,23 +22,11 @@ subject:
   province: {{ .Subject.Province }}
   streetAddress: {{ .Subject.StreetAddress }}
   postalCode: {{ .Subject.PostalCode }}
+
+keyType: {{ .KeyType }}
 `
 
-func PromptConfig(env *wcli.Environment) (*setup.Config, error) {
-	cfg, err := setup.DefaultConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	if err := frontend.EditStructWithVerifier(
-		env.Frontend, configTemplateText, cfg, frontend.CallVerifyMethod); err != nil {
-		return nil, err
-	}
-
-	return cfg, nil
-}
-
-func EnsureCA(env *wcli.Environment, profile *storage.Profile) error {
+func EnsureCA(env *wcli.Environment, cfg *setup.Config, profile *storage.Profile) error {
 	slog := env.Logger.Sugar()
 
 	st := profile.Status()
@@ -50,9 +38,18 @@ func EnsureCA(env *wcli.Environment, profile *storage.Profile) error {
 		return st
 	}
 
+	if cfg == nil {
+		var err error
+		cfg, err = setup.DefaultConfig()
+		// setup.DefaultConfig errors are ignorable.
+		if err != nil {
+			slog.Debugf("Errors encountered while constructing default CA config: %v", err)
+		}
+	}
+
 	slog.Infof("Starting CA setup for %v.", profile)
-	cfg, err := PromptConfig(env)
-	if err != nil {
+	if err := frontend.EditStructWithVerifier(
+		env.Frontend, configTemplateText, cfg, frontend.CallVerifyMethod); err != nil {
 		return err
 	}
 
@@ -72,25 +69,31 @@ var Command = &cli.Command{
 		},
 	),
 	Action: func(c *cli.Context) error {
-		if c.Bool("dump-template") {
-			cfg, err := setup.DefaultConfig()
-			if err != nil {
-				return err
-			}
+		env := wcli.GlobalEnvironment
+		slog := env.Logger.Sugar()
 
+		cfg, err := setup.DefaultConfig()
+		if c.Bool("dump-template") {
 			if err := frontend.DumpTemplate(configTemplateText, cfg); err != nil {
 				return err
 			}
 			return nil
 		}
+		// setup.DefaultConfig errors are ignorable.
+		if err != nil {
+			slog.Debugf("Errors encountered while constructing default config: %v", err)
+		}
 
-		env := wcli.GlobalEnvironment
+		if err := structflags.PopulateStructFromCliContext(cfg, c); err != nil {
+			return err
+		}
+
 		profile, err := env.Profile()
 		if err != nil {
 			return err
 		}
 
-		if err := EnsureCA(env, profile); err != nil {
+		if err := EnsureCA(env, cfg, profile); err != nil {
 			return err
 		}
 
