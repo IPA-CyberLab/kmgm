@@ -16,6 +16,7 @@ import (
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/remote"
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/serve"
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/setup"
+	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/tool"
 	"github.com/IPA-CyberLab/kmgm/frontend"
 	"github.com/IPA-CyberLab/kmgm/ipapi"
 	"github.com/IPA-CyberLab/kmgm/storage"
@@ -43,7 +44,7 @@ func main() {
 	app.Version = fmt.Sprintf("%s.%s", version.Version, version.Commit)
 	app.EnableBashCompletion = true
 	app.Flags = []cli.Flag{
-		&cli.StringFlag{
+		&cli.PathFlag{
 			Name:    "basedir",
 			EnvVars: []string{"KMGMDIR"},
 			Usage:   "The root directory storing all kmgm data.",
@@ -82,6 +83,7 @@ func main() {
 		list.Command,
 		remote.Command,
 		serve.Command,
+		tool.Command,
 	}
 	app.Before = func(c *cli.Context) error {
 		if c.Bool("no-geoip") {

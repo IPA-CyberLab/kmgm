@@ -4,4 +4,5 @@ const (
 	RSAPrivateKeyPemType = "RSA PRIVATE KEY"
 	ECPrivateKeyPemType  = "EC PRIVATE KEY"
 	CertificatePemType   = "CERTIFICATE"
+	PublicKeyPemType     = "PUBLIC KEY"
 )
