@@ -31,7 +31,10 @@ func TestTokenFileAuthProvider(t *testing.T) {
 
 	now := time.Now()
 
-	ta := serve.NewTokenFileAuthProvider(tmpfile.Name(), TestLogger)
+	ta, err := serve.NewTokenFileAuthProvider(tmpfile.Name(), TestLogger)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := ta.Authenticate("foobar", now); err == nil {
 		t.Fatal(err)
 	}
