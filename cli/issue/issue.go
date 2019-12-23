@@ -21,6 +21,8 @@ func createCertificate(env *cli.Environment, pub crypto.PublicKey, cfg *Config, 
 	start := time.Now()
 	slog.Info("Generating certificate...")
 
+	// FIXME[P1]: check and abort when priv key type mismatch
+
 	t := &x509.Certificate{
 		// AuthorityKeyId is automatically set by x509.CreateCertificate
 		BasicConstraintsValid: true,

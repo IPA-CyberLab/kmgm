@@ -24,6 +24,8 @@ func createCertificate(env *cli.Environment, cfg *Config, priv crypto.PrivateKey
 	start := time.Now()
 	slog.Infow("Generating certificate...")
 
+	// FIXME[P1]: check and abort when priv key type mismatch
+
 	pub, err := wcrypto.ExtractPublicKey(priv)
 	if err != nil {
 		return nil, err
