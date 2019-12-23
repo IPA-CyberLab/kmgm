@@ -92,3 +92,16 @@ func (parsed *ParsedTag) ToCliFlag(k reflect.Kind) cli.Flag {
 		return nil
 	}
 }
+
+func (parsed *ParsedTag) ToDurationFlag() cli.Flag {
+	_, required := parsed.Opts["required"]
+	_, hidden := parsed.Opts["hidden"]
+
+	return &cli.DurationFlag{
+		Name:     parsed.Name,
+		Usage:    parsed.Usage,
+		Aliases:  parsed.Aliases,
+		Required: required,
+		Hidden:   hidden,
+	}
+}

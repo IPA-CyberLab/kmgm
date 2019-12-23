@@ -7,19 +7,16 @@ import (
 )
 
 type Config struct {
-	ListenAddr string
+	ListenAddr string `flags:"listen-addr,server listen host:addr (:34680)"`
 
-	// SubjectAltNames to use on server certificate
-	Names san.Names
+	Names san.Names `flags:"subject-alt-name,set subjectAltNames to use on server certificate,san"`
 
-	// Enable /issue endpoint for N times.
-	IssueHttp int
+	IssueHttp int `flags:"issue-http,enable certificate issue via HTTP API"`
+
+	AutoShutdown time.Duration `flags:"auto-shutdown,auto shutdown server after specified time"`
 
 	// Enable node bootstrapping with the given auth provider.
 	Bootstrap TokenAuthProvider
-
-	// Auto shutdown the server after specified time if specified.
-	AutoShutdown time.Duration
 }
 
 func DefaultConfig() (*Config, error) {

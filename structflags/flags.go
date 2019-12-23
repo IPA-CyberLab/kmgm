@@ -3,9 +3,12 @@ package structflags
 import (
 	"fmt"
 	"reflect"
+	"time"
 
 	"github.com/urfave/cli/v2"
 )
+
+var DurationType = reflect.TypeOf(time.Duration(0))
 
 type Unmarshaler interface {
 	UnmarshalFlag(string) error
@@ -29,11 +32,21 @@ func populateValueFromCliContext(v reflect.Value, c *cli.Context, parsed *Parsed
 			return nil
 		}
 	}
+	if DurationType.AssignableTo(v.Type()) {
+		flagVal := c.Duration(parsed.Name)
+		v.Set(reflect.ValueOf(flagVal))
+		return nil
+	}
 
 	switch v.Kind() {
 	case reflect.Bool:
 		if c.IsSet(parsed.Name) {
 			v.SetBool(true)
+		}
+
+	case reflect.Int:
+		if c.IsSet(parsed.Name) {
+			v.SetInt(int64(c.Int(parsed.Name)))
 		}
 
 	case reflect.String:
@@ -75,6 +88,9 @@ func populateFlagsFromType(t reflect.Type, parsed *ParsedTag, fs *[]cli.Flag) er
 	if pt.Implements(UnmarshalerType) {
 		*fs = append(*fs, parsed.ToCliFlag(reflect.Interface))
 		return nil
+	}
+	if t.AssignableTo(DurationType) {
+		*fs = append(*fs, parsed.ToDurationFlag())
 	}
 
 	switch t.Kind() {
