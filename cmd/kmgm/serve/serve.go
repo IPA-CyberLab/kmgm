@@ -1,6 +1,8 @@
 package serve
 
 import (
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/urfave/cli/v2"
@@ -35,6 +37,10 @@ var Command = &cli.Command{
 			Name:  "bootstrap-token",
 			Usage: "Enable node bootstrapping using the specified token.",
 		},
+		&cli.PathFlag{
+			Name:  "bootstrap-token-file",
+			Usage: "Enable node bootstrapping using the specified token file.",
+		},
 	},
 	Action: func(c *cli.Context) error {
 		env := wcli.GlobalEnvironment
@@ -51,15 +57,31 @@ var Command = &cli.Command{
 				cfg.AutoShutdown = IssueHttpDefaultShutdown
 			}
 		}
+
 		if c.IsSet("bootstrap") || c.IsSet("bootstrap-token") {
-			cfg.Bootstrap = c.String("bootstrap-token")
-			if cfg.Bootstrap == "" {
-				token, err := wcrypto.GenBase64Token(env.Randr, env.Logger)
+			if c.IsSet("bootstrap-token-file") {
+				return errors.New("--bootstrap-token-file can't be specified when --bootstrap,--bootstrap-token is specified.")
+			}
+
+			token := c.String("bootstrap-token")
+			if token == "" {
+				token, err = wcrypto.GenBase64Token(env.Randr, env.Logger)
 				if err != nil {
 					return err
 				}
-				cfg.Bootstrap = token
 			}
+			cfg.Bootstrap = &serve.FixedTokenAuthProvider{
+				Token:    token,
+				NotAfter: time.Now().Add(15 * time.Minute),
+				Logger:   env.Logger,
+			}
+		} else if c.IsSet("bootstrap-token-file") {
+			ta, err := serve.NewTokenFileAuthProvider(
+				c.String("bootstrap-token-file"), env.Logger)
+			if err != nil {
+				return fmt.Errorf("Failed to initialize tokenFileAuthProvider: %w", err)
+			}
+			cfg.Bootstrap = ta
 		}
 
 		return serve.Run(c.Context, env, cfg)

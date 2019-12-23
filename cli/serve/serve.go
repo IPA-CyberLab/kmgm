@@ -52,7 +52,7 @@ func grpcHttpMux(grpcServer *grpc.Server, httpHandler http.Handler) http.Handler
 
 const BearerPrefix = "bearer "
 
-func generateAuthFunc(authp *storage.Profile, bootstrap string) (grpc_auth.AuthFunc, error) {
+func generateAuthFunc(authp *storage.Profile, tauth TokenAuthProvider) (grpc_auth.AuthFunc, error) {
 	cacert, err := authp.ReadCACertificate()
 	if err != nil {
 		return nil, err
@@ -91,8 +91,14 @@ func generateAuthFunc(authp *storage.Profile, bootstrap string) (grpc_auth.AuthF
 				}
 				token := authHeader[len(BearerPrefix):]
 
-				if bootstrap == "" || token != bootstrap {
-					return nil, grpc.Errorf(codes.Unauthenticated, "Bad token")
+				if token == "" {
+					return nil, grpc.Errorf(codes.Unauthenticated, "Empty token")
+				}
+				if tauth == nil {
+					return nil, grpc.Errorf(codes.Unauthenticated, "Token auth disabled")
+				}
+				if err := tauth.Authenticate(token, time.Now()); err != nil {
+					return nil, grpc.Errorf(codes.Unauthenticated, "%v", err)
 				}
 				u = user.BootstrapToken
 			}
@@ -152,10 +158,8 @@ func StartServer(env *cli.Environment, cfg *Config) (*Server, error) {
 		return nil, fmt.Errorf("Failed to listen %q: %w", listenAddr, err)
 	}
 	slog.Infof("Started to listen at %q. My public key hash is %s.", listenAddr, pubkeyhash)
-	if cfg.Bootstrap != "" {
-		slog.Infof("Node bootstrap enabled. Token: %s", cfg.Bootstrap)
-		// FIXME[P2]: pick random listenaddr. otherwise this will present "--server :34680" which is useless
-		slog.Infof("For your convenience, bootstrap command-line to be executed on your clients would look like: kmgm client --server %s --pinnedpubkey %s --token %s bootstrap", listenAddr, pubkeyhash, cfg.Bootstrap)
+	if cfg.Bootstrap != nil {
+		cfg.Bootstrap.LogHelpMessage(listenAddr, pubkeyhash)
 	}
 
 	uics := []grpc.UnaryServerInterceptor{

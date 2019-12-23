@@ -15,8 +15,8 @@ type Config struct {
 	// Enable /issue endpoint for N times.
 	IssueHttp int
 
-	// Enable node bootstrapping with given token.
-	Bootstrap string
+	// Enable node bootstrapping with the given auth provider.
+	Bootstrap TokenAuthProvider
 
 	// Auto shutdown the server after specified time if specified.
 	AutoShutdown time.Duration

@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -68,7 +69,11 @@ func runTestServer(t *testing.T) (*cli.Environment, *storage.Profile, func()) {
 
 	cfg := &serve.Config{
 		ListenAddr: ListenAddr,
-		Bootstrap:  BootstrapToken,
+		Bootstrap: &serve.FixedTokenAuthProvider{
+			Token:    BootstrapToken,
+			NotAfter: time.Now().Add(15 * time.Minute),
+			Logger:   env.Logger,
+		},
 	}
 
 	srv, err := serve.StartServer(env, cfg)
