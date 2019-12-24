@@ -28,10 +28,6 @@ func New(baseDir string) (*Storage, error) {
 	return &Storage{BaseDir: baseDir}, nil
 }
 
-func (s *Storage) ClientCACertPath() string {
-	return filepath.Join(s.BaseDir, "server.cert.pem")
-}
-
 func (s *Storage) ClientPrivateKeyPath() string {
 	return filepath.Join(s.BaseDir, "client.key.pem")
 }
