@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/urfave/cli/v2"
+	"gopkg.in/yaml.v2"
 
 	wcli "github.com/IPA-CyberLab/kmgm/cli"
 	localissue "github.com/IPA-CyberLab/kmgm/cmd/kmgm/issue"
@@ -34,6 +35,11 @@ var Command = &cli.Command{
 			Issue: issuecfg,
 		}
 
+		if cfgbs, ok := c.App.Metadata["ConfigBytes"].([]byte); ok {
+			if err := yaml.UnmarshalStrict(cfgbs, cfg); err != nil {
+				return err
+			}
+		}
 		if err := structflags.PopulateStructFromCliContext(cfg, c); err != nil {
 			return err
 		}

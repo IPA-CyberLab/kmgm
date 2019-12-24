@@ -53,6 +53,7 @@ func VerifyDNSNameEntry(s string) error {
 	return nil
 }
 
+// FIXME[P1]: IP addrs in SAN is not a single IP addr, but range.
 type Names struct {
 	DNSNames []string
 	IPAddrs  []net.IP
@@ -155,7 +156,7 @@ func FromCertificate(cert *x509.Certificate) Names {
 func ForThisHost(listenAddr string) (ns Names) {
 	if host, _, err := net.SplitHostPort(listenAddr); err == nil {
 		if ipaddr := net.ParseIP(host); ipaddr != nil {
-			if !ipaddr.IsUnspecified() {
+			if !ipaddr.IsUnspecified() && !ipaddr.IsLoopback() {
 				ns.IPAddrs = append(ns.IPAddrs, ipaddr)
 			}
 		} else {

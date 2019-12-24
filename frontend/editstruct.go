@@ -3,7 +3,6 @@ package frontend
 import (
 	"bytes"
 	"fmt"
-	"net"
 	"strings"
 	"text/template"
 
@@ -44,10 +43,6 @@ func PrependYamlCommentLiteral(s string) string {
 	return b.String()
 }
 
-func IsLoopback(ip net.IP) bool {
-	return ip.IsLoopback()
-}
-
 func StripErrorText(s string) string {
 	lines := strings.Split(s, "\n")
 
@@ -75,7 +70,6 @@ func makeTemplate(tmplstr string) (*template.Template, error) {
 		template.New("setupconfig").
 			Funcs(template.FuncMap{
 				"PrependYamlCommentLiteral": PrependYamlCommentLiteral,
-				"IsLoopback":                IsLoopback,
 				"StripBeforeLine":           func() string { return stripBeforeLine },
 			}).
 			Parse(tmplstrFull)

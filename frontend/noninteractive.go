@@ -3,8 +3,7 @@ package frontend
 import "go.uber.org/zap"
 
 type NonInteractive struct {
-	Content string
-	Logger  *zap.Logger
+	Logger *zap.Logger
 }
 
 var _ = Frontend(&NonInteractive{})
@@ -17,10 +16,6 @@ func (fe *NonInteractive) Confirm(q string) error {
 
 func (fe *NonInteractive) EditText(beforeEdit string, validator func(string) (string, error)) (string, error) {
 	slog := fe.Logger.Sugar()
-
-	if fe.Content != "" {
-		beforeEdit = fe.Content
-	}
 
 	txt, err := validator(beforeEdit)
 	if err != nil {

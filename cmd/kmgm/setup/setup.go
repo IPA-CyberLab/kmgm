@@ -2,6 +2,7 @@ package setup
 
 import (
 	"github.com/urfave/cli/v2"
+	"gopkg.in/yaml.v2"
 
 	wcli "github.com/IPA-CyberLab/kmgm/cli"
 	"github.com/IPA-CyberLab/kmgm/cli/setup"
@@ -84,6 +85,11 @@ var Command = &cli.Command{
 			slog.Debugf("Errors encountered while constructing default config: %v", err)
 		}
 
+		if cfgbs, ok := c.App.Metadata["ConfigBytes"].([]byte); ok {
+			if err := yaml.UnmarshalStrict(cfgbs, cfg); err != nil {
+				return err
+			}
+		}
 		if err := structflags.PopulateStructFromCliContext(cfg, c); err != nil {
 			return err
 		}

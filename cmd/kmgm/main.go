@@ -125,9 +125,9 @@ func main() {
 			if err != nil {
 				return err
 			}
+			c.App.Metadata["ConfigBytes"] = bs
 			env.Frontend = &frontend.NonInteractive{
-				Content: string(bs),
-				Logger:  env.Logger,
+				Logger: env.Logger,
 			}
 		}
 		wcli.GlobalEnvironment = env
