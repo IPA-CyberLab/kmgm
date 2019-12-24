@@ -156,7 +156,7 @@ func FromCertificate(cert *x509.Certificate) Names {
 func ForThisHost(listenAddr string) (ns Names) {
 	if host, _, err := net.SplitHostPort(listenAddr); err == nil {
 		if ipaddr := net.ParseIP(host); ipaddr != nil {
-			if !ipaddr.IsUnspecified() && !ipaddr.IsLoopback() {
+			if !ipaddr.IsUnspecified() {
 				ns.IPAddrs = append(ns.IPAddrs, ipaddr)
 			}
 		} else {
@@ -168,7 +168,7 @@ func ForThisHost(listenAddr string) (ns Names) {
 			for _, addr := range addrs {
 				if ipaddr, ok := addr.(*net.IPNet); ok {
 					ip := ipaddr.IP
-					if ip.IsLinkLocalUnicast() {
+					if ip.IsLinkLocalUnicast() || ip.IsLoopback() {
 						continue
 					}
 					ns.IPAddrs = append(ns.IPAddrs, ip)
