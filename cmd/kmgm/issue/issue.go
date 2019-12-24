@@ -159,7 +159,6 @@ issue:
   {{- end -}}
   {{- range .Names.IPAddrs }}
     - {{ printf "%v" . }}
-  {{- end -}}
   {{- end }}
 
   # validity specifies the lifetime the cert is valid for.
