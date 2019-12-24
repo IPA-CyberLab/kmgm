@@ -9,6 +9,7 @@ import (
 	"github.com/IPA-CyberLab/kmgm/consts"
 	"github.com/IPA-CyberLab/kmgm/dname"
 	"github.com/IPA-CyberLab/kmgm/storage"
+	"github.com/IPA-CyberLab/kmgm/wcrypto"
 )
 
 // The name of internal storage profile to serve as kmgm HTTPS/gRPC server client auth.
@@ -44,6 +45,7 @@ func Ensure(env *cli.Environment) (*storage.Profile, error) {
 		cfg.Subject = &dname.Config{
 			CommonName: "kmgm serverauth CA",
 		}
+		cfg.KeyType = wcrypto.ServerKeyType
 
 		if err := setup.Run(envS, cfg); err != nil {
 			return nil, fmt.Errorf("Failed to setup serverauth CA: %v", err)
