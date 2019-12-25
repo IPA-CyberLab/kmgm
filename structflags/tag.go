@@ -68,6 +68,15 @@ func (parsed *ParsedTag) ToCliFlag(k reflect.Kind) cli.Flag {
 			Hidden:   hidden,
 		}
 
+	case reflect.Int:
+		return &cli.IntFlag{
+			Name:     parsed.Name,
+			Usage:    parsed.Usage,
+			Aliases:  parsed.Aliases,
+			Required: required,
+			Hidden:   hidden,
+		}
+
 	case reflect.String, reflect.Interface:
 		if _, ok := parsed.Opts["path"]; ok {
 			return &cli.PathFlag{

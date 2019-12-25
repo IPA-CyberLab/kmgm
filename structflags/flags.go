@@ -94,7 +94,7 @@ func populateFlagsFromType(t reflect.Type, parsed *ParsedTag, fs *[]cli.Flag) er
 	}
 
 	switch t.Kind() {
-	case reflect.String, reflect.Bool:
+	case reflect.String, reflect.Bool, reflect.Int:
 		*fs = append(*fs, parsed.ToCliFlag(t.Kind()))
 
 	case reflect.Struct:
