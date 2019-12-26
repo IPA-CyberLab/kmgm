@@ -172,23 +172,31 @@ issue:
   # keyUsage specifies the purpose of the key signed.
   keyUsage:
     # Default. The cert can be used for both TLS client and server.
+    {{ CommentOutIfFalse (eq .KeyUsage.Preset "tlsClientServer") -}}
     preset: tlsClientServer
 
     # The cert valid for TLS server only, and cannot be used for client auth.
-    # preset: tlsServer
+    {{ CommentOutIfFalse (eq .KeyUsage.Preset "tlsServer") -}}
+    preset: tlsServer
 
     # The cert valid for TLS client auth only, and cannot be used for server
     # auth.
-    # preset: tlsClient
+    {{ CommentOutIfFalse (eq .KeyUsage.Preset "tlsClient") -}}
+    preset: tlsClient
 
     # For advanced users only.
     keyUsage:
-    # - keyEncipherment
-    # - digitalSignature
+    {{ CommentOutIfFalse (and (eq .KeyUsage.Preset "custom") (TestKeyUsageBit "keyEncipherment" .KeyUsage.KeyUsage)) -}}
+    - keyEncipherment
+    {{ CommentOutIfFalse (and (eq .KeyUsage.Preset "custom") (TestKeyUsageBit "digitalSignature" .KeyUsage.KeyUsage)) -}}
+    - digitalSignature
     extKeyUsage:
-    # - any
-    # - clientAuth
-    # - serverAuth
+    {{ CommentOutIfFalse (and (eq .KeyUsage.Preset "custom") (HasExtKeyUsage "any" .KeyUsage.ExtKeyUsages)) -}}
+    - any
+    {{ CommentOutIfFalse (and (eq .KeyUsage.Preset "custom") (HasExtKeyUsage "clientAuth" .KeyUsage.ExtKeyUsages)) -}}
+    - clientAuth
+    {{ CommentOutIfFalse (and (eq .KeyUsage.Preset "custom") (HasExtKeyUsage "serverAuth" .KeyUsage.ExtKeyUsages)) -}}
+    - serverAuth
 {{ end -}}
 `
 

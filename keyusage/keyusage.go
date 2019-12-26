@@ -182,3 +182,16 @@ func (a KeyUsage) Equals(b KeyUsage) bool {
 
 	return true
 }
+
+func (ku KeyUsage) Preset() string {
+	if ku.Equals(KeyUsageTLSServer) {
+		return "tlsServer"
+	}
+	if ku.Equals(KeyUsageTLSClient) {
+		return "tlsClient"
+	}
+	if ku.Equals(KeyUsageTLSClientServer) {
+		return "tlsClientServer"
+	}
+	return "custom"
+}

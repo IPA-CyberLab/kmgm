@@ -2,7 +2,9 @@ package frontend
 
 import (
 	"bytes"
+	"crypto/x509"
 	"fmt"
+	"log"
 	"strings"
 	"text/template"
 
@@ -71,6 +73,47 @@ func makeTemplate(tmplstr string) (*template.Template, error) {
 			Funcs(template.FuncMap{
 				"PrependYamlCommentLiteral": PrependYamlCommentLiteral,
 				"StripBeforeLine":           func() string { return stripBeforeLine },
+				"CommentOutIfFalse": func(e bool) string {
+					if e {
+						return ""
+					}
+					return "# "
+				},
+				"TestKeyUsageBit": func(bitName string, ku x509.KeyUsage) bool {
+					// FIXME[P3]: move this logic to keyusage
+					var bit x509.KeyUsage
+					switch bitName {
+					case "keyEncipherment":
+						bit = x509.KeyUsageKeyEncipherment
+					case "digitalSignature":
+						bit = x509.KeyUsageDigitalSignature
+					default:
+						log.Panicf("unknown bitName %q", bitName)
+					}
+
+					return (ku & bit) != 0
+				},
+				"HasExtKeyUsage": func(ekuName string, ekus []x509.ExtKeyUsage) bool {
+					// FIXME[P3]: move this logic to keyusage
+					var eku x509.ExtKeyUsage
+					switch ekuName {
+					case "any":
+						eku = x509.ExtKeyUsageAny
+					case "clientAuth":
+						eku = x509.ExtKeyUsageClientAuth
+					case "serverAuth":
+						eku = x509.ExtKeyUsageServerAuth
+					default:
+						log.Panicf("unknown ekuName %q", ekuName)
+					}
+					for _, e := range ekus {
+						if e == eku {
+							return true
+						}
+					}
+
+					return false
+				},
 			}).
 			Parse(tmplstrFull)
 	if err != nil {
