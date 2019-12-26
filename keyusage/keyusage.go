@@ -4,6 +4,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"sort"
 
 	"github.com/IPA-CyberLab/kmgm/pb"
 )
@@ -159,4 +160,25 @@ func (p *KeyUsage) UnmarshalFlag(s string) error {
 
 	*p = ku
 	return nil
+}
+
+func (a KeyUsage) Equals(b KeyUsage) bool {
+	if a.KeyUsage != b.KeyUsage {
+		return false
+	}
+	if len(a.ExtKeyUsages) != len(b.ExtKeyUsages) {
+		return false
+	}
+
+	ekua := append([]x509.ExtKeyUsage{}, a.ExtKeyUsages...)
+	ekub := append([]x509.ExtKeyUsage{}, b.ExtKeyUsages...)
+	sort.Slice(ekua, func(i, j int) bool { return ekua[i] < ekua[j] })
+	sort.Slice(ekub, func(i, j int) bool { return ekub[i] < ekub[j] })
+	for i := range ekua {
+		if ekua[i] != ekub[i] {
+			return false
+		}
+	}
+
+	return true
 }
