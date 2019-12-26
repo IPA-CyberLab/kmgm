@@ -91,7 +91,7 @@ func writeKeyCertTar(w io.Writer, privbs, certbs []byte) error {
 	tw := tar.NewWriter(w)
 
 	if err := tw.WriteHeader(&tar.Header{
-		Name:    "cert-key.pem",
+		Name:    "key.pem",
 		Mode:    0400,
 		Size:    int64(len(privbs)),
 		ModTime: modt,

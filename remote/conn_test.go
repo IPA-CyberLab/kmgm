@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -197,8 +196,8 @@ func TestServerClientCertAuth(t *testing.T) {
 	srvEnv, authp, shutdownServer := runTestServer(t)
 	defer shutdownServer()
 
-	cliPrivPath := filepath.Join(srvEnv.Storage.BaseDir, "client_priv.pem")
-	cliCertPath := filepath.Join(srvEnv.Storage.BaseDir, "client_cert.pem")
+	cliPrivPath := srvEnv.Storage.ClientPrivateKeyPath()
+	cliCertPath := srvEnv.Storage.ClientCertPath()
 
 	cliPriv, err := wcrypto.GenerateKey(rand.Reader, wcrypto.ServerKeyType, "clicert", TestLogger)
 	if err != nil {

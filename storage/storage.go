@@ -74,7 +74,7 @@ func (s *Profile) mkdirIfNeeded() error {
 }
 
 func (s *Profile) CAPrivateKeyPath() string {
-	return filepath.Join(s.BaseDir, "priv.pem")
+	return filepath.Join(s.BaseDir, "key.pem")
 }
 
 func (s *Profile) CACertPath() string {
@@ -86,7 +86,7 @@ func (s *Profile) serverCertPath() string {
 }
 
 func (s *Profile) serverPrivateKeyPath() string {
-	return filepath.Join(s.BaseDir, "server.priv.pem")
+	return filepath.Join(s.BaseDir, "server.key.pem")
 }
 
 func (s *Profile) IssueDBPath() string {

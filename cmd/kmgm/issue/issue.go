@@ -33,7 +33,7 @@ func ReadOrGenerateKey(env *wcli.Environment, ktype wcrypto.KeyType, privPath st
 	}
 
 	if privPath == "" {
-		privPath = filepath.Join(cwd, "cert-key.pem")
+		privPath = filepath.Join(cwd, "key.pem")
 		items := []frontend.ConfigItem{
 			frontend.ConfigItem{
 				Label:    "Private key file",
