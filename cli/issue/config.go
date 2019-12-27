@@ -4,9 +4,6 @@ import (
 	"crypto/x509"
 	"fmt"
 
-	"go.uber.org/multierr"
-
-	"github.com/IPA-CyberLab/kmgm/cli"
 	"github.com/IPA-CyberLab/kmgm/dname"
 	"github.com/IPA-CyberLab/kmgm/keyusage"
 	"github.com/IPA-CyberLab/kmgm/san"
@@ -24,24 +21,9 @@ type Config struct {
 	NoIssueDBEntry bool
 }
 
-func DefaultConfig(env *cli.Environment) (*Config, error) {
-	var merr error
-
-	var caSubject *dname.Config
-	profile, err := env.Profile()
-	if err != nil {
-		merr = multierr.Append(merr, err)
-	} else {
-		caSubject, err = profile.ReadCASubject()
-		if err != nil {
-			merr = multierr.Append(merr, err)
-		}
-	}
-
-	subject, err := dname.DefaultConfig("", caSubject)
-	if err != nil {
-		merr = multierr.Append(merr, err)
-	}
+func DefaultConfig(baseSubject *dname.Config) (*Config, error) {
+	subject, err := dname.DefaultConfig("", baseSubject)
+	// dname.DefaultConfig error is ignorable
 
 	cfg := &Config{
 		Subject:  subject,
@@ -50,7 +32,7 @@ func DefaultConfig(env *cli.Environment) (*Config, error) {
 		Validity: ValidityPeriod{Days: 820},
 		KeyType:  wcrypto.KeyRSA4096,
 	}
-	return cfg, merr
+	return cfg, err
 }
 
 func ConfigFromCert(cert *x509.Certificate) *Config {

@@ -21,7 +21,7 @@ type ConnectionInfo struct {
 
 	CACertificateFile string `yaml:"caCertificateFile" flags:"cacert,Path to a CA certificate to verify the kmgm server,,path"`
 	PinnedPubKey      string `yaml:"pinnedPubKey" flags:"pinnedpubkey,SHA256 hash of the kmgm server publickey"`
-	AllowInsecure     bool   `yaml:"allowInsecure,omitempty" flags:"insecure,skip kmgm server certificate verification (hidden),,hidden`
+	AllowInsecure     bool   `yaml:"allowInsecure,omitempty" flags:"insecure,skip kmgm server certificate verification (hidden),,hidden"`
 
 	ClientCertificateFile string `yaml:"clientCertificateFile" flags:"client-cert,Path to a client certificate to present to the kmgm server,,path"`
 	ClientPrivateKeyFile  string `yaml:"clientPrivateKeyFile" flags:"client-priv,Path to the private key corresponding to the client certificate,,path"`

@@ -26,7 +26,8 @@ var Command = &cli.Command{
 			return err
 		}
 
-		issuecfg, err := issue.DefaultConfig(env)
+		// FIXME[P2]: retrieve cacert from the server and use its subject as base.
+		issuecfg, err := issue.DefaultConfig(nil)
 		if err != nil {
 			return err
 		}

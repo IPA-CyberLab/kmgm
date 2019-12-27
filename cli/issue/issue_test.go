@@ -73,7 +73,7 @@ func TestIssue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
-	cfg, err := issue.DefaultConfig(env)
+	cfg, err := issue.DefaultConfig(nil)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}

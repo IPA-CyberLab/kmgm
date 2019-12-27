@@ -218,7 +218,7 @@ func (s *Profile) WriteServerCertificate(cert *x509.Certificate) error {
 func ReadCertificateFile(p string) (*x509.Certificate, error) {
 	bs, err := ioutil.ReadFile(p)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to read CA cert %q: %w", p, err)
+		return nil, fmt.Errorf("Failed to read CA cert: %w", err)
 	}
 	cs, err := pemparser.ParseCertificates(bs)
 	if err != nil {

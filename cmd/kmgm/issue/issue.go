@@ -236,7 +236,12 @@ var Command = &cli.Command{
 			return err
 		}
 
-		issuecfg, err := issue.DefaultConfig(env)
+		caSubject, err := profile.ReadCASubject()
+		if err != nil {
+			return err
+		}
+
+		issuecfg, err := issue.DefaultConfig(caSubject)
 		// issue.DefaultConfig errors are ignorable.
 		if err != nil && !c.Bool("dump-template") {
 			slog.Debugf("Errors encountered while constructing default config: %v", err)
