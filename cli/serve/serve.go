@@ -29,6 +29,7 @@ import (
 	"github.com/IPA-CyberLab/kmgm/cli"
 	"github.com/IPA-CyberLab/kmgm/cli/serve/authprofile"
 	"github.com/IPA-CyberLab/kmgm/cli/serve/certificateservice"
+	"github.com/IPA-CyberLab/kmgm/cli/serve/certshandler"
 	"github.com/IPA-CyberLab/kmgm/cli/serve/httpzaplog"
 	"github.com/IPA-CyberLab/kmgm/cli/serve/issuehandler"
 	"github.com/IPA-CyberLab/kmgm/pb"
@@ -203,6 +204,7 @@ func StartServer(env *cli.Environment, cfg *Config) (*Server, error) {
 		slog.Infof("HTTP issue endpoint enabled for %d times.", cfg.IssueHttp)
 		slog.Infof("  On clients, exec: %s", curlcmd)
 	}
+	mux.Handle("/certs/", http.StripPrefix("/certs/", certshandler.New(env)))
 
 	httpHandler := httpzaplog.Handler{
 		Upstream: mux,

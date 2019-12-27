@@ -1,4 +1,4 @@
-package issuehandler
+package httperr
 
 type ErrorWithStatusCode struct {
 	StatusCode int

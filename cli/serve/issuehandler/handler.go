@@ -14,6 +14,7 @@ import (
 	"github.com/IPA-CyberLab/kmgm/cli"
 	"github.com/IPA-CyberLab/kmgm/cli/issue"
 	"github.com/IPA-CyberLab/kmgm/dname"
+	"github.com/IPA-CyberLab/kmgm/httperr"
 	"github.com/IPA-CyberLab/kmgm/keyusage"
 	"github.com/IPA-CyberLab/kmgm/pemparser"
 	"github.com/IPA-CyberLab/kmgm/san"
@@ -128,7 +129,7 @@ func (h *Handler) serveHTTPIfPossible(w http.ResponseWriter, r *http.Request) er
 	// FIXME[P3]: allow Authorization header
 	token := q.Get("token")
 	if token != h.token {
-		return ErrorWithStatusCode{http.StatusUnauthorized, errors.New("Invalid token.")}
+		return httperr.ErrorWithStatusCode{http.StatusUnauthorized, errors.New("Invalid token.")}
 	}
 
 	profile, err := h.env.Storage.Profile(storage.DefaultProfileName)
@@ -150,13 +151,13 @@ func (h *Handler) serveHTTPIfPossible(w http.ResponseWriter, r *http.Request) er
 	if s := q.Get("ktype"); s != "" {
 		ktype, err = wcrypto.KeyTypeFromString(s)
 		if err != nil {
-			return ErrorWithStatusCode{http.StatusBadRequest, err}
+			return httperr.ErrorWithStatusCode{http.StatusBadRequest, err}
 		}
 	}
 
 	commonName := q.Get("cn")
 	if commonName == "" {
-		return ErrorWithStatusCode{http.StatusBadRequest, errors.New("param \"cn\" is not specified.")}
+		return httperr.ErrorWithStatusCode{http.StatusBadRequest, errors.New("param \"cn\" is not specified.")}
 	}
 	subject.CommonName = commonName
 
@@ -167,7 +168,7 @@ func (h *Handler) serveHTTPIfPossible(w http.ResponseWriter, r *http.Request) er
 
 	for _, e := range q["san"] {
 		if err := ns.Add(e); err != nil {
-			return ErrorWithStatusCode{http.StatusBadRequest, fmt.Errorf("Failed to parse subjectAltName entry %q: %w", e, err)}
+			return httperr.ErrorWithStatusCode{http.StatusBadRequest, fmt.Errorf("Failed to parse subjectAltName entry %q: %w", e, err)}
 		}
 	}
 
@@ -175,10 +176,10 @@ func (h *Handler) serveHTTPIfPossible(w http.ResponseWriter, r *http.Request) er
 		raddrWithPort := r.RemoteAddr
 		raddr, _, err := net.SplitHostPort(raddrWithPort)
 		if err != nil {
-			return ErrorWithStatusCode{http.StatusBadRequest, fmt.Errorf("Failed to parse remoteip %q: %w", raddrWithPort, err)}
+			return httperr.ErrorWithStatusCode{http.StatusBadRequest, fmt.Errorf("Failed to parse remoteip %q: %w", raddrWithPort, err)}
 		}
 		if err := ns.Add(raddr); err != nil {
-			return ErrorWithStatusCode{http.StatusBadRequest, fmt.Errorf("Failed to add remoteip %q as subjectAltName: %w", raddr, err)}
+			return httperr.ErrorWithStatusCode{http.StatusBadRequest, fmt.Errorf("Failed to add remoteip %q as subjectAltName: %w", raddr, err)}
 		}
 	}
 
@@ -186,7 +187,7 @@ func (h *Handler) serveHTTPIfPossible(w http.ResponseWriter, r *http.Request) er
 	if s, set := q["days"]; set {
 		n, err := strconv.ParseUint(s[0], 10, 32)
 		if err != nil {
-			return ErrorWithStatusCode{http.StatusBadRequest, fmt.Errorf("Failed to parse days %q: %w", s[0], err)}
+			return httperr.ErrorWithStatusCode{http.StatusBadRequest, fmt.Errorf("Failed to parse days %q: %w", s[0], err)}
 		}
 		days = uint(n)
 	}
@@ -194,7 +195,7 @@ func (h *Handler) serveHTTPIfPossible(w http.ResponseWriter, r *http.Request) er
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if h.allowedCountLeft <= 0 {
-		return ErrorWithStatusCode{http.StatusTooManyRequests, errors.New("/issue was invoked for more than its allowed count.")}
+		return httperr.ErrorWithStatusCode{http.StatusTooManyRequests, errors.New("/issue was invoked for more than its allowed count.")}
 	}
 	h.allowedCountLeft -= 1
 
@@ -238,7 +239,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	slog := h.env.Logger.Sugar()
 
 	if err := h.serveHTTPIfPossible(w, r); err != nil {
-		slog.Errorw("Failed to process request", "err", err)
-		http.Error(w, fmt.Sprintf("Failed to process request: %v", err), StatusCodeFromError(err))
+		slog.Warnw("Failed to process request", "err", err)
+		http.Error(w, fmt.Sprintf("Failed to process request: %v", err), httperr.StatusCodeFromError(err))
 	}
 }
