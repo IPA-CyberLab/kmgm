@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/IPA-CyberLab/kmgm/cli"
-	"github.com/IPA-CyberLab/kmgm/cli/setup"
+	"github.com/IPA-CyberLab/kmgm/action"
+	"github.com/IPA-CyberLab/kmgm/action/setup"
 	"github.com/IPA-CyberLab/kmgm/consts"
 	"github.com/IPA-CyberLab/kmgm/dname"
 	"github.com/IPA-CyberLab/kmgm/storage"
@@ -15,7 +15,7 @@ import (
 // The name of internal storage profile to serve as kmgm HTTPS/gRPC server client auth.
 const ProfileName = consts.AuthProfileName
 
-func Ensure(env *cli.Environment) (*storage.Profile, error) {
+func Ensure(env *action.Environment) (*storage.Profile, error) {
 	slog := env.Logger.Sugar()
 
 	profile, err := env.Storage.Profile(ProfileName)

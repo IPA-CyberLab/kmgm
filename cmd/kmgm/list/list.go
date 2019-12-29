@@ -5,7 +5,7 @@ import (
 
 	"github.com/urfave/cli/v2"
 
-	wcli "github.com/IPA-CyberLab/kmgm/cli"
+	action "github.com/IPA-CyberLab/kmgm/action"
 	"github.com/IPA-CyberLab/kmgm/pemparser"
 	"github.com/IPA-CyberLab/kmgm/storage/issuedb"
 )
@@ -41,7 +41,7 @@ var Command = &cli.Command{
 	Usage:   "List certificates issued",
 	Aliases: []string{"ls"},
 	Action: func(c *cli.Context) error {
-		env := wcli.GlobalEnvironment
+		env := action.GlobalEnvironment
 
 		profile, err := env.Profile()
 		if err != nil {

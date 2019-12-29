@@ -9,9 +9,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/IPA-CyberLab/kmgm/cli"
-	"github.com/IPA-CyberLab/kmgm/cli/issue"
-	"github.com/IPA-CyberLab/kmgm/cli/serve/authprofile"
+	"github.com/IPA-CyberLab/kmgm/action"
+	"github.com/IPA-CyberLab/kmgm/action/issue"
+	"github.com/IPA-CyberLab/kmgm/action/serve/authprofile"
 	"github.com/IPA-CyberLab/kmgm/dname"
 	"github.com/IPA-CyberLab/kmgm/keyusage"
 	"github.com/IPA-CyberLab/kmgm/san"
@@ -19,7 +19,7 @@ import (
 	"github.com/IPA-CyberLab/kmgm/wcrypto"
 )
 
-func ensurePrivateKey(env *cli.Environment, authp *storage.Profile) (crypto.PrivateKey, error) {
+func ensurePrivateKey(env *action.Environment, authp *storage.Profile) (crypto.PrivateKey, error) {
 	priv, err := authp.ReadServerPrivateKey()
 	if err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
@@ -40,7 +40,7 @@ func ensurePrivateKey(env *cli.Environment, authp *storage.Profile) (crypto.Priv
 	return priv, nil
 }
 
-func ensureServerCert(env *cli.Environment, authp *storage.Profile, ns san.Names) (*tls.Certificate, string, error) {
+func ensureServerCert(env *action.Environment, authp *storage.Profile, ns san.Names) (*tls.Certificate, string, error) {
 	priv, err := ensurePrivateKey(env, authp)
 	if err != nil {
 		return nil, "", err
@@ -67,7 +67,7 @@ func ensureServerCert(env *cli.Environment, authp *storage.Profile, ns san.Names
 			return nil, "", err
 		}
 
-		var srvEnv cli.Environment
+		var srvEnv action.Environment
 		srvEnv = *env
 		srvEnv.ProfileName = authprofile.ProfileName
 		issueCfg := issue.Config{

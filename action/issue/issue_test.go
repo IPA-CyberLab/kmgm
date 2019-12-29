@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/IPA-CyberLab/kmgm/cli"
-	"github.com/IPA-CyberLab/kmgm/cli/issue"
-	"github.com/IPA-CyberLab/kmgm/cli/setup"
+	"github.com/IPA-CyberLab/kmgm/action"
+	"github.com/IPA-CyberLab/kmgm/action/issue"
+	"github.com/IPA-CyberLab/kmgm/action/setup"
 	"github.com/IPA-CyberLab/kmgm/frontend"
 	"github.com/IPA-CyberLab/kmgm/storage"
 	"github.com/IPA-CyberLab/kmgm/wcrypto"
@@ -24,7 +24,7 @@ func init() {
 	zap.ReplaceGlobals(logger)
 }
 
-func testEnv(t *testing.T) (*cli.Environment, func()) {
+func testEnv(t *testing.T) (*action.Environment, func()) {
 	t.Helper()
 
 	basedir, err := ioutil.TempDir("", "kmgm_conn_test")
@@ -37,7 +37,7 @@ func testEnv(t *testing.T) (*cli.Environment, func()) {
 		t.Fatalf("storage.New: %v", err)
 	}
 
-	env, err := cli.NewEnvironment(stor)
+	env, err := action.NewEnvironment(stor)
 	env.Frontend = &frontend.NonInteractive{Logger: zap.L()}
 
 	cfg, err := setup.DefaultConfig()

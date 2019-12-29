@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	wcli "github.com/IPA-CyberLab/kmgm/cli"
+	action "github.com/IPA-CyberLab/kmgm/action"
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/issue"
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/list"
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/remote"
@@ -111,7 +111,7 @@ func main() {
 		if err != nil {
 			return err
 		}
-		env, err := wcli.NewEnvironment(stor)
+		env, err := action.NewEnvironment(stor)
 		if err != nil {
 			return err
 		}
@@ -130,7 +130,7 @@ func main() {
 				Logger: env.Logger,
 			}
 		}
-		wcli.GlobalEnvironment = env
+		action.GlobalEnvironment = env
 
 		return nil
 	}

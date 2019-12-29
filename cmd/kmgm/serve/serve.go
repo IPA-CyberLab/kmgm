@@ -7,8 +7,8 @@ import (
 
 	"github.com/urfave/cli/v2"
 
-	wcli "github.com/IPA-CyberLab/kmgm/cli"
-	"github.com/IPA-CyberLab/kmgm/cli/serve"
+	action "github.com/IPA-CyberLab/kmgm/action"
+	"github.com/IPA-CyberLab/kmgm/action/serve"
 	"github.com/IPA-CyberLab/kmgm/structflags"
 	"github.com/IPA-CyberLab/kmgm/wcrypto"
 )
@@ -34,7 +34,7 @@ var Command = &cli.Command{
 		},
 	),
 	Action: func(c *cli.Context) error {
-		env := wcli.GlobalEnvironment
+		env := action.GlobalEnvironment
 
 		cfg, err := serve.DefaultConfig()
 		if err != nil {

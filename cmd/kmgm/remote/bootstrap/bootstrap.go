@@ -9,9 +9,9 @@ import (
 
 	"github.com/urfave/cli/v2"
 
-	wcli "github.com/IPA-CyberLab/kmgm/cli"
-	localissue "github.com/IPA-CyberLab/kmgm/cli/issue"
-	"github.com/IPA-CyberLab/kmgm/cli/serve/authprofile"
+	action "github.com/IPA-CyberLab/kmgm/action"
+	localissue "github.com/IPA-CyberLab/kmgm/action/issue"
+	"github.com/IPA-CyberLab/kmgm/action/serve/authprofile"
 	"github.com/IPA-CyberLab/kmgm/dname"
 	"github.com/IPA-CyberLab/kmgm/frontend/validate"
 	"github.com/IPA-CyberLab/kmgm/keyusage"
@@ -20,7 +20,7 @@ import (
 	"github.com/IPA-CyberLab/kmgm/wcrypto"
 )
 
-func EnsureKey(env *wcli.Environment) (crypto.PrivateKey, error) {
+func EnsureKey(env *action.Environment) (crypto.PrivateKey, error) {
 	slog := env.Logger.Sugar()
 	privPath := env.Storage.ClientPrivateKeyPath()
 
@@ -47,7 +47,7 @@ func EnsureKey(env *wcli.Environment) (crypto.PrivateKey, error) {
 	return priv, nil
 }
 
-func IssueCertPair(ctx context.Context, env *wcli.Environment) error {
+func IssueCertPair(ctx context.Context, env *action.Environment) error {
 	slog := env.Logger.Sugar()
 
 	priv, err := EnsureKey(env)
@@ -104,7 +104,7 @@ var Command = &cli.Command{
 	Usage: "Register this client to the kmgm HTTPS/gRPC server",
 	Flags: []cli.Flag{},
 	Action: func(c *cli.Context) error {
-		env := wcli.GlobalEnvironment
+		env := action.GlobalEnvironment
 		slog := env.Logger.Sugar()
 
 		if env.ProfileName != storage.DefaultProfileName &&

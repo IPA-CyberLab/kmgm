@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/IPA-CyberLab/kmgm/cli"
-	"github.com/IPA-CyberLab/kmgm/cli/issue"
+	"github.com/IPA-CyberLab/kmgm/action"
+	"github.com/IPA-CyberLab/kmgm/action/issue"
 	"github.com/IPA-CyberLab/kmgm/dname"
 	"github.com/IPA-CyberLab/kmgm/httperr"
 	"github.com/IPA-CyberLab/kmgm/keyusage"
@@ -23,14 +23,14 @@ import (
 )
 
 type Handler struct {
-	env *cli.Environment
+	env *action.Environment
 
 	token            string
 	allowedCountLeft int
 	mu               sync.Mutex
 }
 
-func New(env *cli.Environment, count int) (*Handler, error) {
+func New(env *action.Environment, count int) (*Handler, error) {
 	token, err := wcrypto.GenBase64Token(env.Randr, env.Logger)
 	if err != nil {
 		return nil, err

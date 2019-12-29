@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/IPA-CyberLab/kmgm/cli/issue"
+	"github.com/IPA-CyberLab/kmgm/action/issue"
 )
 
 func TestValidityPeriod_UnmarshalFlag(t *testing.T) {

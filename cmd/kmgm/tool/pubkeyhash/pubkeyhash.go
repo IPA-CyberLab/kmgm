@@ -12,7 +12,7 @@ import (
 
 	"github.com/urfave/cli/v2"
 
-	wcli "github.com/IPA-CyberLab/kmgm/cli"
+	action "github.com/IPA-CyberLab/kmgm/action"
 	"github.com/IPA-CyberLab/kmgm/pemparser"
 	"github.com/IPA-CyberLab/kmgm/wcrypto"
 )
@@ -30,7 +30,7 @@ var Command = &cli.Command{
 		},
 	},
 	Action: func(c *cli.Context) error {
-		env := wcli.GlobalEnvironment
+		env := action.GlobalEnvironment
 		slog := env.Logger.Sugar()
 
 		var r io.Reader

@@ -8,17 +8,17 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/IPA-CyberLab/kmgm/cli"
+	"github.com/IPA-CyberLab/kmgm/action"
 	"github.com/IPA-CyberLab/kmgm/httperr"
 	"github.com/IPA-CyberLab/kmgm/pemparser"
 	"github.com/IPA-CyberLab/kmgm/storage/issuedb"
 )
 
 type Handler struct {
-	env *cli.Environment
+	env *action.Environment
 }
 
-func New(env *cli.Environment) http.Handler {
+func New(env *action.Environment) http.Handler {
 	return &Handler{env}
 }
 

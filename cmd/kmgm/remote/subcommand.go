@@ -3,7 +3,7 @@ package remote
 import (
 	"github.com/urfave/cli/v2"
 
-	wcli "github.com/IPA-CyberLab/kmgm/cli"
+	action "github.com/IPA-CyberLab/kmgm/action"
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/remote/bootstrap"
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/remote/issue"
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/remote/version"
@@ -17,7 +17,7 @@ var Command = &cli.Command{
 	Usage:   "Interact with remote CA",
 	Flags:   structflags.MustPopulateFlagsFromStruct(remote.ConnectionInfo{}),
 	Before: func(c *cli.Context) error {
-		env := wcli.GlobalEnvironment
+		env := action.GlobalEnvironment
 		if err := env.LoadConnectionInfo(); err != nil {
 			return err
 		}

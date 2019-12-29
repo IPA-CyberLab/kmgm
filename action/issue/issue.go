@@ -8,14 +8,14 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/IPA-CyberLab/kmgm/cli"
+	"github.com/IPA-CyberLab/kmgm/action"
 	"github.com/IPA-CyberLab/kmgm/consts"
 	"github.com/IPA-CyberLab/kmgm/pemparser"
 	"github.com/IPA-CyberLab/kmgm/storage/issuedb"
 	"github.com/IPA-CyberLab/kmgm/wcrypto"
 )
 
-func createCertificate(env *cli.Environment, pub crypto.PublicKey, cfg *Config, cacert *x509.Certificate, capriv crypto.PrivateKey, serial int64) ([]byte, error) {
+func createCertificate(env *action.Environment, pub crypto.PublicKey, cfg *Config, cacert *x509.Certificate, capriv crypto.PrivateKey, serial int64) ([]byte, error) {
 	slog := env.Logger.Sugar()
 
 	start := time.Now()
@@ -84,7 +84,7 @@ func createCertificate(env *cli.Environment, pub crypto.PublicKey, cfg *Config, 
 }
 
 // FIXME[P2]: make concurrent safe
-func Run(env *cli.Environment, pub crypto.PublicKey, cfg *Config) ([]byte, error) {
+func Run(env *action.Environment, pub crypto.PublicKey, cfg *Config) ([]byte, error) {
 	if err := cfg.Names.Verify(); err != nil {
 		return nil, err
 	}

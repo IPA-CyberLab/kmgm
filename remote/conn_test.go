@@ -10,10 +10,10 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/IPA-CyberLab/kmgm/cli"
-	"github.com/IPA-CyberLab/kmgm/cli/issue"
-	"github.com/IPA-CyberLab/kmgm/cli/serve"
-	"github.com/IPA-CyberLab/kmgm/cli/serve/authprofile"
+	"github.com/IPA-CyberLab/kmgm/action"
+	"github.com/IPA-CyberLab/kmgm/action/issue"
+	"github.com/IPA-CyberLab/kmgm/action/serve"
+	"github.com/IPA-CyberLab/kmgm/action/serve/authprofile"
 	"github.com/IPA-CyberLab/kmgm/dname"
 	"github.com/IPA-CyberLab/kmgm/frontend"
 	"github.com/IPA-CyberLab/kmgm/keyusage"
@@ -39,7 +39,7 @@ func init() {
 	TestLogger = logger
 }
 
-func runTestServer(t *testing.T) (*cli.Environment, *storage.Profile, func()) {
+func runTestServer(t *testing.T) (*action.Environment, *storage.Profile, func()) {
 	t.Helper()
 
 	basedir, err := ioutil.TempDir("", "kmgm_conn_test")
@@ -52,7 +52,7 @@ func runTestServer(t *testing.T) (*cli.Environment, *storage.Profile, func()) {
 		t.Fatalf("storage.New: %v", err)
 	}
 
-	env := &cli.Environment{
+	env := &action.Environment{
 		Storage:  stor,
 		Randr:    rand.Reader,
 		Frontend: &frontend.NonInteractive{Logger: TestLogger},

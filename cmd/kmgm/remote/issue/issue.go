@@ -7,7 +7,7 @@ import (
 	"github.com/urfave/cli/v2"
 	"gopkg.in/yaml.v2"
 
-	wcli "github.com/IPA-CyberLab/kmgm/cli"
+	action "github.com/IPA-CyberLab/kmgm/action"
 	localissue "github.com/IPA-CyberLab/kmgm/cmd/kmgm/issue"
 	"github.com/IPA-CyberLab/kmgm/frontend"
 	"github.com/IPA-CyberLab/kmgm/remote/issue"
@@ -21,7 +21,7 @@ var Command = &cli.Command{
 	Usage: "Issue a new certificate or renew an existing certificate. Generates private key if needed.",
 	Flags: structflags.MustPopulateFlagsFromStruct(localissue.Config{}),
 	Action: func(c *cli.Context) error {
-		env := wcli.GlobalEnvironment
+		env := action.GlobalEnvironment
 		if err := env.EnsureClientConn(c.Context); err != nil {
 			return err
 		}

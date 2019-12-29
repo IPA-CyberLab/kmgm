@@ -6,8 +6,8 @@ import (
 	"crypto/x509"
 	"time"
 
-	"github.com/IPA-CyberLab/kmgm/cli"
-	localissue "github.com/IPA-CyberLab/kmgm/cli/issue"
+	"github.com/IPA-CyberLab/kmgm/action"
+	localissue "github.com/IPA-CyberLab/kmgm/action/issue"
 	"github.com/IPA-CyberLab/kmgm/pb"
 )
 
@@ -15,7 +15,7 @@ type Config = localissue.Config
 
 var DefaultConfig = localissue.DefaultConfig
 
-func IssueCertificate(ctx context.Context, env *cli.Environment, pub crypto.PublicKey, cfg *Config) ([]byte, error) {
+func IssueCertificate(ctx context.Context, env *action.Environment, pub crypto.PublicKey, cfg *Config) ([]byte, error) {
 	slog := env.Logger.Sugar()
 
 	if err := cfg.Names.Verify(); err != nil {

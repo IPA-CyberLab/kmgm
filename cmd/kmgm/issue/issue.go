@@ -11,8 +11,8 @@ import (
 	"github.com/urfave/cli/v2"
 	"gopkg.in/yaml.v2"
 
-	wcli "github.com/IPA-CyberLab/kmgm/cli"
-	"github.com/IPA-CyberLab/kmgm/cli/issue"
+	action "github.com/IPA-CyberLab/kmgm/action"
+	"github.com/IPA-CyberLab/kmgm/action/issue"
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/setup"
 	"github.com/IPA-CyberLab/kmgm/frontend"
 	"github.com/IPA-CyberLab/kmgm/frontend/validate"
@@ -23,7 +23,7 @@ import (
 
 var ErrCertKeyPathConflict = errors.New("Specified path conflicts with private key output path.")
 
-func ReadOrGenerateKey(env *wcli.Environment, ktype wcrypto.KeyType, privPath string) (crypto.PrivateKey, string, error) {
+func ReadOrGenerateKey(env *action.Environment, ktype wcrypto.KeyType, privPath string) (crypto.PrivateKey, string, error) {
 	slog := env.Logger.Sugar()
 
 	var cwd string
@@ -81,7 +81,7 @@ func ReadOrGenerateKey(env *wcli.Environment, ktype wcrypto.KeyType, privPath st
 	return priv, privPath, nil
 }
 
-func PromptCertPath(env *wcli.Environment, privPath, certPath string) (string, error) {
+func PromptCertPath(env *action.Environment, privPath, certPath string) (string, error) {
 	if certPath == "" {
 		privDir := filepath.Dir(privPath)
 		certPath = filepath.Join(privDir, "cert.pem")
@@ -228,7 +228,7 @@ var Command = &cli.Command{
 		},
 	),
 	Action: func(c *cli.Context) error {
-		env := wcli.GlobalEnvironment
+		env := action.GlobalEnvironment
 		slog := env.Logger.Sugar()
 
 		profile, err := env.Profile()

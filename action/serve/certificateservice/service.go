@@ -8,8 +8,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 
-	"github.com/IPA-CyberLab/kmgm/cli"
-	"github.com/IPA-CyberLab/kmgm/cli/issue"
+	"github.com/IPA-CyberLab/kmgm/action"
+	"github.com/IPA-CyberLab/kmgm/action/issue"
 	"github.com/IPA-CyberLab/kmgm/dname"
 	"github.com/IPA-CyberLab/kmgm/keyusage"
 	"github.com/IPA-CyberLab/kmgm/pb"
@@ -18,12 +18,12 @@ import (
 )
 
 type Service struct {
-	env *cli.Environment
+	env *action.Environment
 }
 
 var _ = pb.CertificateServiceServer(&Service{})
 
-func New(env *cli.Environment) (*Service, error) {
+func New(env *action.Environment) (*Service, error) {
 	return &Service{env: env}, nil
 }
 

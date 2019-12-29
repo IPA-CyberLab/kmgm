@@ -4,8 +4,8 @@ import (
 	"github.com/urfave/cli/v2"
 	"gopkg.in/yaml.v2"
 
-	wcli "github.com/IPA-CyberLab/kmgm/cli"
-	"github.com/IPA-CyberLab/kmgm/cli/setup"
+	action "github.com/IPA-CyberLab/kmgm/action"
+	"github.com/IPA-CyberLab/kmgm/action/setup"
 	"github.com/IPA-CyberLab/kmgm/frontend"
 	"github.com/IPA-CyberLab/kmgm/storage"
 	"github.com/IPA-CyberLab/kmgm/structflags"
@@ -27,7 +27,7 @@ subject:
 keyType: {{ .KeyType }}
 `
 
-func EnsureCA(env *wcli.Environment, cfg *setup.Config, profile *storage.Profile) error {
+func EnsureCA(env *action.Environment, cfg *setup.Config, profile *storage.Profile) error {
 	slog := env.Logger.Sugar()
 
 	st := profile.Status()
@@ -70,7 +70,7 @@ var Command = &cli.Command{
 		},
 	),
 	Action: func(c *cli.Context) error {
-		env := wcli.GlobalEnvironment
+		env := action.GlobalEnvironment
 		slog := env.Logger.Sugar()
 
 		cfg, err := setup.DefaultConfig()

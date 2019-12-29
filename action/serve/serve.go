@@ -26,12 +26,12 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/reflection"
 
-	"github.com/IPA-CyberLab/kmgm/cli"
-	"github.com/IPA-CyberLab/kmgm/cli/serve/authprofile"
-	"github.com/IPA-CyberLab/kmgm/cli/serve/certificateservice"
-	"github.com/IPA-CyberLab/kmgm/cli/serve/certshandler"
-	"github.com/IPA-CyberLab/kmgm/cli/serve/httpzaplog"
-	"github.com/IPA-CyberLab/kmgm/cli/serve/issuehandler"
+	"github.com/IPA-CyberLab/kmgm/action"
+	"github.com/IPA-CyberLab/kmgm/action/serve/authprofile"
+	"github.com/IPA-CyberLab/kmgm/action/serve/certificateservice"
+	"github.com/IPA-CyberLab/kmgm/action/serve/certshandler"
+	"github.com/IPA-CyberLab/kmgm/action/serve/httpzaplog"
+	"github.com/IPA-CyberLab/kmgm/action/serve/issuehandler"
 	"github.com/IPA-CyberLab/kmgm/pb"
 	"github.com/IPA-CyberLab/kmgm/remote/user"
 	"github.com/IPA-CyberLab/kmgm/san"
@@ -126,7 +126,7 @@ func (s *Server) Close(err error) error {
 	return s.Wait()
 }
 
-func StartServer(env *cli.Environment, cfg *Config) (*Server, error) {
+func StartServer(env *action.Environment, cfg *Config) (*Server, error) {
 	slog := env.Logger.Sugar()
 
 	srv := &Server{
@@ -257,7 +257,7 @@ func StartServer(env *cli.Environment, cfg *Config) (*Server, error) {
 	return srv, nil
 }
 
-func Run(ctx context.Context, env *cli.Environment, cfg *Config) error {
+func Run(ctx context.Context, env *action.Environment, cfg *Config) error {
 	s, err := StartServer(env, cfg)
 	if err != nil {
 		return err

@@ -7,7 +7,6 @@
 // FIXME[P2]: consistency: Certificate -> Cert
 // FIXME[P2]: Reissue if only expire < threshold || config changed
 // FIXME[P2]: zip / PKCS #12 support
-// FIXME[P2]: rename cli package to action
 
 // FIXME[P3]: signal pgrep/ps if cert reissued
 // FIXME[P3]: prometheus support

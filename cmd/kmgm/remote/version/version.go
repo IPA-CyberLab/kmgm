@@ -5,11 +5,11 @@ import (
 
 	"github.com/urfave/cli/v2"
 
-	wcli "github.com/IPA-CyberLab/kmgm/cli"
+	action "github.com/IPA-CyberLab/kmgm/action"
 	"github.com/IPA-CyberLab/kmgm/pb"
 )
 
-func queryVersion(ctx context.Context, env *wcli.Environment) error {
+func queryVersion(ctx context.Context, env *action.Environment) error {
 	slog := env.Logger.Sugar()
 
 	sc := pb.NewVersionServiceClient(env.ClientConn)
@@ -27,7 +27,7 @@ var Command = &cli.Command{
 	Name:  "version",
 	Usage: "Query remote CA kmgm version",
 	Action: func(c *cli.Context) error {
-		env := wcli.GlobalEnvironment
+		env := action.GlobalEnvironment
 		if err := env.EnsureClientConn(c.Context); err != nil {
 			return err
 		}

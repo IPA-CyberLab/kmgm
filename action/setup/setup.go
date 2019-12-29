@@ -10,15 +10,15 @@ import (
 	// zx509 "github.com/zmap/zcrypto/x509"
 	// "github.com/zmap/zlint"
 
-	"github.com/IPA-CyberLab/kmgm/cli"
-	"github.com/IPA-CyberLab/kmgm/cli/issue"
+	"github.com/IPA-CyberLab/kmgm/action"
+	"github.com/IPA-CyberLab/kmgm/action/issue"
 	"github.com/IPA-CyberLab/kmgm/consts"
 	"github.com/IPA-CyberLab/kmgm/frontend/validate"
 	"github.com/IPA-CyberLab/kmgm/storage/issuedb"
 	"github.com/IPA-CyberLab/kmgm/wcrypto"
 )
 
-func createCertificate(env *cli.Environment, cfg *Config, priv crypto.PrivateKey) ([]byte, error) {
+func createCertificate(env *action.Environment, cfg *Config, priv crypto.PrivateKey) ([]byte, error) {
 	slog := env.Logger.Sugar()
 
 	start := time.Now()
@@ -102,7 +102,7 @@ func createCertificate(env *cli.Environment, cfg *Config, priv crypto.PrivateKey
 	return certDer, nil
 }
 
-func Run(env *cli.Environment, cfg *Config) error {
+func Run(env *action.Environment, cfg *Config) error {
 	profile, err := env.Profile()
 	if err != nil {
 		return err

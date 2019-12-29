@@ -8,7 +8,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/IPA-CyberLab/kmgm/cli/serve"
+	"github.com/IPA-CyberLab/kmgm/action/serve"
 )
 
 var TestLogger *zap.Logger

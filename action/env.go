@@ -1,4 +1,4 @@
-package cli
+package action
 
 import (
 	"context"
