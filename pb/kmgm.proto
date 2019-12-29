@@ -46,9 +46,8 @@ message DistinguishedName {
 }
 
 message Names {
-  // FIXME[P1]: should be plural. see style guide.
-  repeated string dnsname = 1;
-  repeated string ipaddr = 2;
+  repeated string dnsnames = 1;
+  repeated string ipaddrs = 2;
 }
 
 message KeyUsage {

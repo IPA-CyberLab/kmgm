@@ -12,8 +12,8 @@ func FromProtoStruct(s *pb.Names) (Names, error) {
 		return ns, nil
 	}
 
-	ns.DNSNames = append(ns.DNSNames, s.Dnsname...)
-	for _, e := range s.Ipaddr {
+	ns.DNSNames = append(ns.DNSNames, s.Dnsnames...)
+	for _, e := range s.Ipaddrs {
 		if ipaddr := net.ParseIP(e); ipaddr != nil {
 			ns.IPAddrs = append(ns.IPAddrs, ipaddr)
 		}
@@ -32,7 +32,7 @@ func (ns Names) ToProtoStruct() *pb.Names {
 	}
 
 	return &pb.Names{
-		Dnsname: append([]string{}, ns.DNSNames...),
-		Ipaddr:  ss,
+		Dnsnames: append([]string{}, ns.DNSNames...),
+		Ipaddrs:  ss,
 	}
 }
