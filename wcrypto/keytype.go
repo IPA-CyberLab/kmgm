@@ -1,6 +1,12 @@
 package wcrypto
 
-import "fmt"
+import (
+	"crypto"
+	"crypto/ecdsa"
+	"crypto/rsa"
+	"fmt"
+	"reflect"
+)
 
 type KeyType int
 
@@ -31,6 +37,31 @@ func KeyTypeFromString(s string) (KeyType, error) {
 		return KeySECP256R1, nil
 	default:
 		return KeyRSA4096, fmt.Errorf("Unknown key type %q.", s)
+	}
+}
+
+func KeyTypeOfPub(pub crypto.PublicKey) (KeyType, error) {
+	switch p := pub.(type) {
+	case *rsa.PublicKey:
+		bitlen := p.N.BitLen()
+		switch bitlen {
+		case 4096:
+			return KeyRSA4096, nil
+		default:
+			return KeyAny, fmt.Errorf("rsa.PublicKey with unsupported key size of %d", bitlen)
+		}
+
+	case *ecdsa.PublicKey:
+		curven := p.Curve.Params().Name
+		switch curven {
+		case "P-256":
+			return KeySECP256R1, nil
+		default:
+			return KeyAny, fmt.Errorf("ecdsa.PublicKey with unsupported curve %q", curven)
+		}
+
+	default:
+		return KeyAny, fmt.Errorf("Unknown public key type: %v", reflect.TypeOf(pub))
 	}
 }
 

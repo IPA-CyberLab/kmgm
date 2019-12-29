@@ -35,15 +35,22 @@ func DefaultConfig(baseSubject *dname.Config) (*Config, error) {
 	return cfg, err
 }
 
-func ConfigFromCert(cert *x509.Certificate) *Config {
+func ConfigFromCert(cert *x509.Certificate) (*Config, error) {
+	kt, err := wcrypto.KeyTypeOfPub(cert.PublicKey)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Config{
 		Subject:  dname.FromPkixName(cert.Subject),
 		Names:    san.FromCertificate(cert),
 		KeyUsage: keyusage.FromCertificate(cert),
-		// FIXME[P1]: validity
-		// FIXME[P1]: keytype
-	}
+		Validity: ValidityPeriod{NotAfter: cert.NotAfter},
+		KeyType:  kt,
+	}, nil
 }
+
+// FIXME[P0]: func (a *Config) Equals(b *Config) bool {}
 
 func (cfg *Config) Verify() error {
 	if err := cfg.Subject.Verify(); err != nil {

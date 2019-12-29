@@ -14,6 +14,7 @@ import (
 	action "github.com/IPA-CyberLab/kmgm/action"
 	"github.com/IPA-CyberLab/kmgm/action/issue"
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/setup"
+	"github.com/IPA-CyberLab/kmgm/dname"
 	"github.com/IPA-CyberLab/kmgm/frontend"
 	"github.com/IPA-CyberLab/kmgm/frontend/validate"
 	"github.com/IPA-CyberLab/kmgm/storage"
@@ -114,7 +115,10 @@ func PromptCertPath(env *action.Environment, privPath, certPath string) (string,
 		if err != nil {
 			return "", err
 		}
-		cfg := issue.ConfigFromCert(cert)
+		cfg, err := issue.ConfigFromCert(cert)
+		if err != nil {
+			return "", err
+		}
 		env.Logger.Sugar().Infof("FIXME[P1] %+v", cfg)
 		// FIXME[P1]: extract issuecfg
 
@@ -236,9 +240,14 @@ var Command = &cli.Command{
 			return err
 		}
 
-		caSubject, err := profile.ReadCASubject()
-		if err != nil {
-			return err
+		var caSubject *dname.Config
+		// Inherit CA subject iff CA is setup.
+		if st := profile.Status(); st == nil {
+			var err error
+			caSubject, err = profile.ReadCASubject()
+			if err != nil {
+				return err
+			}
 		}
 
 		issuecfg, err := issue.DefaultConfig(caSubject)

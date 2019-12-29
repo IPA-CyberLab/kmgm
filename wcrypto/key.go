@@ -23,8 +23,10 @@ func GenerateKey(randr io.Reader, ktype KeyType, usage string, logger *zap.Logge
 	slog := logger.Sugar()
 	start := time.Now()
 
-	slog.Infow("Generating key...", "usage", usage)
-	defer func() { slog.Infow("Generating key... Done.", "usage", usage, "took", time.Now().Sub(start)) }()
+	slog.Infow("Generating key...", "usage", usage, "type", ktype)
+	defer func() {
+		slog.Infow("Generating key... Done.", "usage", usage, "type", ktype, "took", time.Now().Sub(start))
+	}()
 
 	switch ktype {
 	case KeyRSA4096:
