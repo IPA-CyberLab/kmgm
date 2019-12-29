@@ -1,9 +1,11 @@
+// FIXME[P1]: make profile configurable via config file.
+
 // FIXME[P0]: output cert chain, not just leaf
 
 // FIXME[P1]: remote issue test: check perm
 
 // FIXME[P2]: consistency: Certificate -> Cert
-// FIXME[P2]: Reissue if only expire < threshold
+// FIXME[P2]: Reissue if only expire < threshold || config changed
 // FIXME[P2]: zip / PKCS #12 support
 // FIXME[P2]: rename cli package to action
 
