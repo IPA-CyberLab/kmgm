@@ -117,6 +117,7 @@ const (
 )
 
 type CAStatus struct {
+	Profile       *Profile
 	Code          CAStatusCode
 	UnderlyingErr error
 }
@@ -129,14 +130,17 @@ func (s *CAStatus) Error() string {
 	var str string
 	switch s.Code {
 	case NotCA:
-		str = "NotCA"
+		str = fmt.Sprintf("Most likely the CA is not setup yet. No CA files found at %q", s.Profile.BaseDir)
 	case Broken:
-		str = "Broken"
+		str = "The CA is broken. Some of essential files are missing."
 	case Expired:
-		str = "Expired"
+		str = "The CA has an expired certificate."
 	}
 
-	return fmt.Sprintf("%s: %v", str, s.UnderlyingErr)
+	if s.UnderlyingErr != nil {
+		return fmt.Sprintf("%s: %v", str, s.UnderlyingErr)
+	}
+	return str
 }
 
 func (s *CAStatus) Unwrap() error {
@@ -160,26 +164,26 @@ func (s *Profile) Status() *CAStatus {
 	}
 	if notExistCount == len(paths) {
 		// No existing CA file found.
-		return &CAStatus{NotCA, nil}
+		return &CAStatus{s, NotCA, nil}
 	} else if notExistCount != 0 {
 		// Some CA files are missing.
-		return &CAStatus{Broken, merr}
+		return &CAStatus{s, Broken, merr}
 	}
 	// All CA files are found.
 
 	capriv, err := s.ReadCAPrivateKey()
 	if err != nil {
-		return &CAStatus{Broken, err}
+		return &CAStatus{s, Broken, err}
 	}
 	cacert, err := s.ReadCACertificate()
 	if err != nil {
-		return &CAStatus{Broken, err}
+		return &CAStatus{s, Broken, err}
 	}
 	// FIXME[P2]: check issuedb json?
 
 	if err := wcrypto.VerifyCACertAndKey(capriv, cacert, time.Now()); err != nil {
 		// FIXME[P2]: There could be other failure reasons as well
-		return &CAStatus{Expired, err}
+		return &CAStatus{s, Expired, err}
 	}
 
 	return nil

@@ -5,8 +5,9 @@ import (
 
 	"github.com/urfave/cli/v2"
 
-	action "github.com/IPA-CyberLab/kmgm/action"
+	"github.com/IPA-CyberLab/kmgm/action"
 	"github.com/IPA-CyberLab/kmgm/pemparser"
+	"github.com/IPA-CyberLab/kmgm/storage"
 	"github.com/IPA-CyberLab/kmgm/storage/issuedb"
 )
 
@@ -42,10 +43,22 @@ var Command = &cli.Command{
 	Aliases: []string{"ls"},
 	Action: func(c *cli.Context) error {
 		env := action.GlobalEnvironment
+		slog := env.Logger.Sugar()
+
+		// FIXME[P3]: Unless verbose, omit time/level logging as well
 
 		profile, err := env.Profile()
 		if err != nil {
 			return err
+		}
+
+		if st := profile.Status(); st != nil {
+			if st.Code == storage.Expired {
+				slog.Warnf("Expired %s")
+			} else {
+				slog.Infof("Could not find a valid CA profile %q: %v", env.ProfileName, st)
+				return nil
+			}
 		}
 
 		db, err := issuedb.New(env.Randr, profile.IssueDBPath())
