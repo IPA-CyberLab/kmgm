@@ -58,6 +58,25 @@ func (s *Storage) Profile(name string) (*Profile, error) {
 	return p, nil
 }
 
+func (s *Storage) Profiles() ([]*Profile, error) {
+	fis, err := ioutil.ReadDir(s.BaseDir)
+	if err != nil {
+		return nil, err
+	}
+
+	var ps []*Profile
+	for _, fi := range fis {
+		p, err := s.Profile(fi.Name())
+		if err != nil {
+			continue
+		}
+
+		ps = append(ps, p)
+	}
+
+	return ps, nil
+}
+
 func (p *Profile) String() string {
 	if p == nil {
 		return "(*Profile)nil"
@@ -66,9 +85,13 @@ func (p *Profile) String() string {
 	return fmt.Sprintf("Profile{%q}", p.BaseDir)
 }
 
-func (s *Profile) mkdirIfNeeded() error {
-	if err := os.MkdirAll(s.BaseDir, 0755); err != nil {
-		return fmt.Errorf("os.MkdirAll(%q): %w", s.BaseDir, err)
+func (p *Profile) Name() string {
+	return filepath.Base(p.BaseDir)
+}
+
+func (p *Profile) mkdirIfNeeded() error {
+	if err := os.MkdirAll(p.BaseDir, 0755); err != nil {
+		return fmt.Errorf("os.MkdirAll(%q): %w", p.BaseDir, err)
 	}
 	return nil
 }

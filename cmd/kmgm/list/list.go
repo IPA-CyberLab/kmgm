@@ -36,16 +36,42 @@ func certInfo(pem []byte) string {
 		c.Subject)
 }
 
-// FIXME[P2]: --all-profiles
+func LsProfile(env *action.Environment) error {
+	ps, err := env.Storage.Profiles()
+	if err != nil {
+		return fmt.Errorf("Failed to list profiles: %w", err)
+	}
+
+	for _, p := range ps {
+		fmt.Printf("%s %s\n", p.Name(), p.Status())
+	}
+
+	return nil
+}
+
 var Command = &cli.Command{
 	Name:    "list",
 	Usage:   "List certificates issued",
 	Aliases: []string{"ls"},
+	Flags: []cli.Flag{
+		&cli.BoolFlag{
+			Name:    "profile",
+			Aliases: []string{"p", "profiles"},
+			Usage:   "Print list of profiles",
+		},
+	},
 	Action: func(c *cli.Context) error {
 		env := action.GlobalEnvironment
 		slog := env.Logger.Sugar()
 
 		// FIXME[P3]: Unless verbose, omit time/level logging as well
+
+		if c.Bool("profile") {
+			if err := LsProfile(env); err != nil {
+				return err
+			}
+			return nil
+		}
 
 		profile, err := env.Profile()
 		if err != nil {
