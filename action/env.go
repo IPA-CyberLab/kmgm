@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/mattn/go-isatty"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"gopkg.in/yaml.v2"
@@ -33,14 +34,22 @@ type Environment struct {
 }
 
 func NewEnvironment(stor *storage.Storage) (*Environment, error) {
-	// FIXME[P1]: Check if interactive terminal
-	fe := promptuife.Frontend{}
+	l := zap.L()
+
+	var fe frontend.Frontend
+	if isatty.IsTerminal(os.Stdin.Fd()) {
+		fe = &frontend.NonInteractive{
+			Logger: l,
+		}
+	} else {
+		fe = promptuife.Frontend{}
+	}
 
 	cfg := &Environment{
 		Storage:  stor,
 		Randr:    rand.Reader,
 		Frontend: fe,
-		Logger:   zap.L(),
+		Logger:   l,
 
 		ProfileName: storage.DefaultProfileName,
 	}

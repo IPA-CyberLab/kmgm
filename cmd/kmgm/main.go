@@ -117,8 +117,6 @@ func main() {
 		}
 		env.ProfileName = c.String("profile")
 
-		// FIXME[P1]: !isatty -> noninteractive
-
 		configFile := c.String("config")
 		if configFile != "" {
 			bs, err := ioutil.ReadFile(configFile)
