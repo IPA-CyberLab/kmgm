@@ -42,6 +42,7 @@ func TestTokenFileAuthProvider(t *testing.T) {
 	if _, err := tmpfile.Write([]byte("   validtoken\t\t \n")); err != nil {
 		t.Fatal(err)
 	}
+	// We need Close() here since we read the tokenfile in the following ta.Authenticate calls.
 	if err := tmpfile.Close(); err != nil {
 		t.Fatal(err)
 	}

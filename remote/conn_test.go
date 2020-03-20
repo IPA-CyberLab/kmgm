@@ -81,8 +81,8 @@ func runTestServer(t *testing.T) (*action.Environment, *storage.Profile, func())
 	}
 
 	return env, authp, func() {
-		if err := srv.Close(nil); err != nil {
-			t.Errorf("Server.Close: %v", err)
+		if err := srv.Shutdown(context.Background()); err != nil {
+			t.Errorf("Server.Shutdown: %v", err)
 		}
 		os.RemoveAll(basedir)
 	}

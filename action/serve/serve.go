@@ -113,26 +113,11 @@ func generateAuthFunc(authp *storage.Profile, tauth TokenAuthProvider) (grpc_aut
 }
 
 type Server struct {
-	closeC chan error
-	errC   chan error
-}
-
-func (s *Server) Wait() error {
-	return <-s.errC
-}
-
-func (s *Server) Close(err error) error {
-	s.closeC <- err
-	return s.Wait()
+	Shutdown func(ctx context.Context) error
 }
 
 func StartServer(env *action.Environment, cfg *Config) (*Server, error) {
 	slog := env.Logger.Sugar()
-
-	srv := &Server{
-		closeC: make(chan error),
-		errC:   make(chan error),
-	}
 
 	if cfg.Names.Empty() {
 		cfg.Names = san.ForThisHost(cfg.ListenAddr)
@@ -221,36 +206,24 @@ func StartServer(env *action.Environment, cfg *Config) (*Server, error) {
 		},
 	}
 
-	closed := false
-	var userErr error
-	go func() {
-		userErr = <-srv.closeC
-
-		if !closed {
-			closed = true
-			lis.Close()
-		}
-	}()
 	go func() {
 		slog.Infof("Starting to accept new conn.")
 		err := httpsrv.Serve(tls.NewListener(lis, httpsrv.TLSConfig))
-		// Suppress "use of closed network connection" error if we intentionally closed the listener.
-		if err != nil && closed {
-			srv.errC <- userErr
-			close(srv.errC)
-			close(srv.closeC)
-			return
+		if err != nil && err != http.ErrServerClosed {
+			slog.Warnf("httpsrv.Serve failed: %v", err)
 		}
-		srv.errC <- err
-		close(srv.errC)
-		close(srv.closeC)
 	}()
+	srv := &Server{
+		Shutdown: func(ctx context.Context) error {
+			return httpsrv.Shutdown(ctx)
+		},
+	}
 
 	if cfg.AutoShutdown > 0 {
 		slog.Infof("Will start auto-shutdown after %v", cfg.AutoShutdown)
 		time.AfterFunc(cfg.AutoShutdown, func() {
 			slog.Infof("Starting auto-shutdown since %v passed", cfg.AutoShutdown)
-			srv.Close(nil)
+			srv.Shutdown(context.Background())
 		})
 	}
 
@@ -262,9 +235,6 @@ func Run(ctx context.Context, env *action.Environment, cfg *Config) error {
 	if err != nil {
 		return err
 	}
-	go func() {
-		<-ctx.Done()
-		s.closeC <- nil
-	}()
-	return s.Wait()
+	<-ctx.Done()
+	return s.Shutdown(ctx)
 }
