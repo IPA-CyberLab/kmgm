@@ -55,6 +55,7 @@ func testEnv(t *testing.T) (*action.Environment, func()) {
 
 func TestIssue(t *testing.T) {
 	env, teardown := testEnv(t)
+	t.Cleanup(teardown)
 
 	profile, err := env.Profile()
 	if err != nil {

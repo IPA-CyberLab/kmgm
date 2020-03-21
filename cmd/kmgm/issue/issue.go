@@ -27,7 +27,6 @@ var ErrCertKeyPathConflict = errors.New("Specified path conflicts with private k
 func ReadOrGenerateKey(env *action.Environment, ktype wcrypto.KeyType, privPath string) (crypto.PrivateKey, string, error) {
 	slog := env.Logger.Sugar()
 
-	var cwd string
 	cwd, err := os.Getwd()
 	if err != nil {
 		return nil, "", err
@@ -137,6 +136,7 @@ func PromptCertPath(env *action.Environment, privPath, certPath string) (string,
 
 // FIXME[P2]: Factor out subject config as a text/template macro.
 // FIXME[P1]: keyType
+// FIXME[P2]: Should escape
 const ConfigTemplateText = `
 ---
 # kmgm pki new cert config

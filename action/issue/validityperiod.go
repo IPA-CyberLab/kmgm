@@ -26,11 +26,11 @@ func (p ValidityPeriod) GetNotAfter(base time.Time) time.Time {
 	return base.Add(time.Duration(p.Days) * 24 * time.Hour)
 }
 
-const NotAfterLayout = "20060102"
+const notAfterLayout = "20060102"
 
 func (p ValidityPeriod) String() string {
 	if !p.NotAfter.IsZero() {
-		return p.NotAfter.Format(NotAfterLayout)
+		return p.NotAfter.Format(notAfterLayout)
 	}
 	return fmt.Sprintf("%dd", p.Days)
 }
@@ -59,7 +59,7 @@ func (p *ValidityPeriod) UnmarshalFlag(s string) error {
 
 		return nil
 	}
-	if t, err := time.ParseInLocation(NotAfterLayout, s, time.Local); err == nil {
+	if t, err := time.ParseInLocation(notAfterLayout, s, time.Local); err == nil {
 		p.NotAfter = t
 		return nil
 	}

@@ -4,13 +4,14 @@ import (
 	"github.com/urfave/cli/v2"
 	"gopkg.in/yaml.v2"
 
-	action "github.com/IPA-CyberLab/kmgm/action"
+	"github.com/IPA-CyberLab/kmgm/action"
 	"github.com/IPA-CyberLab/kmgm/action/setup"
 	"github.com/IPA-CyberLab/kmgm/frontend"
 	"github.com/IPA-CyberLab/kmgm/storage"
 	"github.com/IPA-CyberLab/kmgm/structflags"
 )
 
+// FIXME[P2]: Should escape
 const configTemplateText = `
 ---
 # kmgm PKI CA config
