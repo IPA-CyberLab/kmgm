@@ -134,26 +134,14 @@ func PromptCertPath(env *action.Environment, privPath, certPath string) (string,
 	return certPath, nil
 }
 
-// FIXME[P2]: Factor out subject config as a text/template macro.
 // FIXME[P1]: keyType
 // FIXME[P2]: Should escape
-// ---
-// # kmgm pki new cert config
 const ConfigTemplateText = `
+---
+# kmgm pki new cert config
 {{- with .Issue }}
 issue:
-
-  # The subject explains name, affiliation, and location of the target computer,
-  # user, or service the cert is issued against.
-  subject:
-    commonName: {{ .Subject.CommonName }}
-    organization: {{ .Subject.Organization }}
-    organizationalUnit: {{ .Subject.OrganizationalUnit }}
-    country: {{ .Subject.Country }}
-    locality: {{ .Subject.Locality }}
-    province: {{ .Subject.Province }}
-    streetAddress: {{ .Subject.StreetAddress }}
-    postalCode: {{ .Subject.PostalCode }}
+{{ template "subject" .Subject }}
 
   # The subjectAltNames specifies hostnames or ipaddrs which the cert is issued
   # against.

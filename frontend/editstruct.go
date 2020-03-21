@@ -20,6 +20,19 @@ type templateContext struct {
 const stripBeforeLine = "# *** LINES ABOVE WILL BE AUTOMATICALLY DELETED ***"
 
 const configTemplateTextPrologue = `
+{{- define "subject" }}
+  # The subject explains name, affiliation, and location of the target computer,
+  # user, or service the cert is issued against.
+  subject:
+    commonName: {{ .CommonName }}
+    organization: {{ .Organization }}
+    organizationalUnit: {{ .OrganizationalUnit }}
+    country: {{ .Country }}
+    locality: {{ .Locality }}
+    province: {{ .Province }}
+    streetAddress: {{ .StreetAddress }}
+    postalCode: {{ .PostalCode }}
+{{- end -}}
 {{- with .ErrorString -}}
 # Please address the following error:
 {{ PrependYamlCommentLiteral . -}}

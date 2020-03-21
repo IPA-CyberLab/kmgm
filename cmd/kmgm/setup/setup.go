@@ -14,15 +14,7 @@ import (
 const configTemplateText = `
 ---
 # kmgm PKI CA config
-subject:
-  commonName: {{ .Subject.CommonName }}
-  organization: {{ .Subject.Organization }}
-  organizationalUnit: {{ .Subject.OrganizationalUnit }}
-  country: {{ .Subject.Country }}
-  locality: {{ .Subject.Locality }}
-  province: {{ .Subject.Province }}
-  streetAddress: {{ .Subject.StreetAddress }}
-  postalCode: {{ .Subject.PostalCode }}
+{{ template "subject" .Subject }}
 
 keyType: {{ .KeyType }}
 `
