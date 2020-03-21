@@ -43,6 +43,16 @@ func (u KeyUsage) Clone() KeyUsage {
 	}
 }
 
+func (u KeyUsage) Verify() error {
+	if int(u.KeyUsage) == 0 {
+		return errors.New("KeyUsage is empty.")
+	}
+
+	// FIXME[P2]: Implement https://tools.ietf.org/html/rfc5280#section-4.2.1.3
+
+	return nil
+}
+
 type yamlKeyUsage struct {
 	KeyUsage    []string `yaml:"keyUsage"`
 	ExtKeyUsage []string `yaml:"extKeyUsage"`

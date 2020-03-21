@@ -2,7 +2,9 @@ package issue
 
 import (
 	"crypto/x509"
+	"errors"
 	"fmt"
+	"time"
 
 	"github.com/IPA-CyberLab/kmgm/dname"
 	"github.com/IPA-CyberLab/kmgm/keyusage"
@@ -35,6 +37,12 @@ func DefaultConfig(baseSubject *dname.Config) (*Config, error) {
 	return cfg, err
 }
 
+func EmptyConfig() *Config {
+	return &Config{
+		Subject: &dname.Config{},
+	}
+}
+
 func ConfigFromCert(cert *x509.Certificate) (*Config, error) {
 	kt, err := wcrypto.KeyTypeOfPub(cert.PublicKey)
 	if err != nil {
@@ -52,17 +60,23 @@ func ConfigFromCert(cert *x509.Certificate) (*Config, error) {
 
 // FIXME[P0]: func (a *Config) Equals(b *Config) bool {}
 
-func (cfg *Config) Verify() error {
+const expireThreshold = 30 * time.Second
+
+var ErrValidityPeriodExpired = errors.New("Declining to issue certificate which expires within 30 seconds.")
+
+func (cfg *Config) Verify(now time.Time) error {
 	if err := cfg.Subject.Verify(); err != nil {
 		return fmt.Errorf("Subject.%w", err)
 	}
 	if err := cfg.Names.Verify(); err != nil {
 		return fmt.Errorf("Names.%w", err)
 	}
-	// FIXME[P1]: Implement keyusage verify
-	// if err := cfg.KeyUsage.Verify(); err != nil {
-	// 	return fmt.Errorf("KeyUsage.%w", err)
-	// }
+	if err := cfg.KeyUsage.Verify(); err != nil {
+		return fmt.Errorf("KeyUsage.%w", err)
+	}
+	if cfg.Validity.GetNotAfter(now).Before(now.Add(expireThreshold)) {
+		return ErrValidityPeriodExpired
+	}
 
 	return nil
 }

@@ -121,11 +121,11 @@ func main() {
 		if configFile != "" {
 			bs, err := ioutil.ReadFile(configFile)
 			if err != nil {
-				return err
+				return fmt.Errorf("Failed to read specified config file: %w", err)
 			}
-			c.App.Metadata["ConfigBytes"] = bs
 			env.Frontend = &frontend.NonInteractive{
-				Logger: env.Logger,
+				Logger:     env.Logger,
+				ConfigText: string(bs),
 			}
 		}
 		action.GlobalEnvironment = env

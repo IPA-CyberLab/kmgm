@@ -20,17 +20,21 @@ var ServerKeyType = KeySECP256R1
 
 func (kt KeyType) String() string {
 	switch kt {
+	case KeyAny:
+		return "any"
 	case KeyRSA4096:
 		return "rsa"
 	case KeySECP256R1:
 		return "ecdsa"
 	default:
-		return "unknown_keytype"
+		return fmt.Sprintf("unknown_keytype%d", int(kt))
 	}
 }
 
 func KeyTypeFromString(s string) (KeyType, error) {
 	switch s {
+	case "any":
+		return KeyAny, nil
 	case "rsa":
 		return KeyRSA4096, nil
 	case "secp256r1", "ecdsa":

@@ -2,7 +2,6 @@ package setup
 
 import (
 	"github.com/urfave/cli/v2"
-	"gopkg.in/yaml.v2"
 
 	"github.com/IPA-CyberLab/kmgm/action"
 	"github.com/IPA-CyberLab/kmgm/action/setup"
@@ -74,6 +73,7 @@ var Command = &cli.Command{
 		env := action.GlobalEnvironment
 		slog := env.Logger.Sugar()
 
+		// FIXME[P1]: noDefault
 		cfg, err := setup.DefaultConfig()
 		if c.Bool("dump-template") {
 			if err := frontend.DumpTemplate(configTemplateText, cfg); err != nil {
@@ -86,11 +86,7 @@ var Command = &cli.Command{
 			slog.Debugf("Errors encountered while constructing default config: %v", err)
 		}
 
-		if cfgbs, ok := c.App.Metadata["ConfigBytes"].([]byte); ok {
-			if err := yaml.UnmarshalStrict(cfgbs, cfg); err != nil {
-				return err
-			}
-		}
+		// FIXME[P1]: This must come after EditStructWithVerifier.
 		if err := structflags.PopulateStructFromCliContext(cfg, c); err != nil {
 			return err
 		}

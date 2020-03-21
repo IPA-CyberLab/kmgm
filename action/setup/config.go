@@ -1,10 +1,15 @@
 package setup
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/IPA-CyberLab/kmgm/dname"
 	"github.com/IPA-CyberLab/kmgm/wcrypto"
+)
+
+var (
+	ErrSubjectEmpty = errors.New("CA Subject must not be empty.")
 )
 
 type Config struct {
@@ -25,6 +30,10 @@ func DefaultConfig() (*Config, error) {
 func (cfg *Config) Verify() error {
 	if err := cfg.Subject.Verify(); err != nil {
 		return fmt.Errorf("Subject.%w", err)
+	}
+	// FIXME[P2]: Test me
+	if cfg.Subject.IsEmpty() {
+		return ErrSubjectEmpty
 	}
 
 	return nil

@@ -46,6 +46,10 @@ func stripTrailingWhitespace(s string) string {
 	return strings.TrimRight(s, " \n")
 }
 
+func (fe Frontend) ShouldLoadDefaults() bool {
+	return true
+}
+
 func (fe Frontend) EditText(beforeEdit string, validator func(string) (string, error)) (string, error) {
 	u, err := user.Current()
 	if err != nil {

@@ -7,9 +7,9 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"time"
 
 	"github.com/urfave/cli/v2"
-	"gopkg.in/yaml.v2"
 
 	action "github.com/IPA-CyberLab/kmgm/action"
 	"github.com/IPA-CyberLab/kmgm/action/issue"
@@ -137,9 +137,9 @@ func PromptCertPath(env *action.Environment, privPath, certPath string) (string,
 // FIXME[P2]: Factor out subject config as a text/template macro.
 // FIXME[P1]: keyType
 // FIXME[P2]: Should escape
+// ---
+// # kmgm pki new cert config
 const ConfigTemplateText = `
----
-# kmgm pki new cert config
 {{- with .Issue }}
 issue:
 
@@ -209,13 +209,16 @@ type Config struct {
 	CertPath       string `yaml:"certPath" flags:"cert,cert input/output path,,path"`
 
 	Issue *issue.Config `yaml:"issue" flags:""`
+
+	// This is here to avoid UnmarshalStrict throw error when noDefault was specified for ShouldLoadDefaults().
+	XXX_NoDefault bool `yaml:"noDefault"`
 }
 
 func (c *Config) Verify() error {
 	// FIXME[P2]: Check PrivateKeyPath here as well? (currently checked in ReadOrGenerateKey)
 	// FIXME[P2]: Check CertPath here as well? (currently checked in PromptCertPath)
 
-	if err := c.Issue.Verify(); err != nil {
+	if err := c.Issue.Verify(time.Now()); err != nil {
 		return err
 	}
 
@@ -240,39 +243,36 @@ var Command = &cli.Command{
 			return err
 		}
 
-		var caSubject *dname.Config
-		// Inherit CA subject iff CA is setup.
-		if st := profile.Status(); st == nil {
-			var err error
-			caSubject, err = profile.ReadCASubject()
-			if err != nil {
-				return err
+		cfg := &Config{}
+		if c.Bool("dump-template") || env.Frontend.ShouldLoadDefaults() {
+			slog.Debugf("Constructing default config.")
+
+			var caSubject *dname.Config
+			// Inherit CA subject iff CA is setup.
+			if st := profile.Status(); st == nil {
+				var err error
+				caSubject, err = profile.ReadCASubject()
+				if err != nil {
+					return err
+				}
 			}
+
+			issuecfg, err := issue.DefaultConfig(caSubject)
+			// issue.DefaultConfig errors are ignorable.
+			if err != nil && !c.Bool("dump-template") {
+				slog.Debugf("Errors encountered while constructing default config: %v", err)
+			}
+			cfg.Issue = issuecfg
+		} else {
+			slog.Debugf("Config is from scratch.")
+			cfg.Issue = issue.EmptyConfig()
 		}
 
-		issuecfg, err := issue.DefaultConfig(caSubject)
-		// issue.DefaultConfig errors are ignorable.
-		if err != nil && !c.Bool("dump-template") {
-			slog.Debugf("Errors encountered while constructing default config: %v", err)
-		}
-
-		cfg := &Config{
-			Issue: issuecfg,
-		}
 		if c.Bool("dump-template") {
 			if err := frontend.DumpTemplate(ConfigTemplateText, cfg); err != nil {
 				return err
 			}
 			return nil
-		}
-
-		if cfgbs, ok := c.App.Metadata["ConfigBytes"].([]byte); ok {
-			if err := yaml.UnmarshalStrict(cfgbs, cfg); err != nil {
-				return err
-			}
-		}
-		if err := structflags.PopulateStructFromCliContext(cfg, c); err != nil {
-			return err
 		}
 
 		if err := setup.EnsureCA(env, nil, profile); err != nil {
@@ -297,6 +297,9 @@ var Command = &cli.Command{
 
 		if err := frontend.EditStructWithVerifier(
 			env.Frontend, ConfigTemplateText, cfg, frontend.CallVerifyMethod); err != nil {
+			return err
+		}
+		if err := structflags.PopulateStructFromCliContext(cfg, c); err != nil {
 			return err
 		}
 

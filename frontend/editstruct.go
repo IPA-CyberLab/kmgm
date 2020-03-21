@@ -12,8 +12,9 @@ import (
 )
 
 type templateContext struct {
-	ErrorString string
-	Config      interface{}
+	ErrorString string      `yaml:"-"`
+	Config      interface{} `yaml:"config"`
+	NoDefault   bool        `yaml:"noDefault"`
 }
 
 const stripBeforeLine = "# *** LINES ABOVE WILL BE AUTOMATICALLY DELETED ***"
@@ -23,10 +24,15 @@ const configTemplateTextPrologue = `
 # Please address the following error:
 {{ PrependYamlCommentLiteral . -}}
 {{ StripBeforeLine }}
-{{- end -}}
+{{- end }}
 {{- with .Config -}}
 `
-const configTemplateTextEpilogue = "{{- end }}\n"
+const configTemplateTextEpilogue = `{{- end }}
+# noDefault prevents kmgm from assigning default values to unspecified fields.
+# Setting "noDefault: true" is recommended for non-interactive invocations to
+# avoid unintended behavior.
+noDefault: {{ .NoDefault }}
+`
 
 func PrependYamlCommentLiteral(s string) string {
 	var b strings.Builder
@@ -130,7 +136,7 @@ func DumpTemplate(tmplstr string, cfg interface{}) error {
 	}
 
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, templateContext{Config: cfg}); err != nil {
+	if err := tmpl.Execute(&buf, templateContext{Config: cfg, NoDefault: true}); err != nil {
 		return err
 	}
 
@@ -146,7 +152,7 @@ func EditStructWithVerifier(fe Frontend, tmplstr string, cfg interface{}, Verify
 		return err
 	}
 
-	tctx := templateContext{Config: cfg}
+	tctx := templateContext{Config: cfg, NoDefault: fe.ShouldLoadDefaults()}
 
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, tctx); err != nil {

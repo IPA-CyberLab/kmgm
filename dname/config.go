@@ -151,6 +151,35 @@ func (cfg *Config) Verify() error {
 	return nil
 }
 
+func (cfg *Config) IsEmpty() bool {
+	if cfg.CommonName != "" {
+		return false
+	}
+	if cfg.Organization != "" {
+		return false
+	}
+	if cfg.OrganizationalUnit != "" {
+		return false
+	}
+	if cfg.Country != "" {
+		return false
+	}
+	if cfg.Locality != "" {
+		return false
+	}
+	if cfg.Province != "" {
+		return false
+	}
+	if cfg.StreetAddress != "" {
+		return false
+	}
+	if cfg.PostalCode != "" {
+		return false
+	}
+
+	return true
+}
+
 func (cfg *Config) ConfigItems() []frontend.ConfigItem {
 	return []frontend.ConfigItem{
 		frontend.ConfigItem{
