@@ -9,13 +9,11 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/mattn/go-isatty"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"gopkg.in/yaml.v2"
 
 	"github.com/IPA-CyberLab/kmgm/frontend"
-	"github.com/IPA-CyberLab/kmgm/frontend/promptuife"
 	"github.com/IPA-CyberLab/kmgm/remote"
 	"github.com/IPA-CyberLab/kmgm/remote/hello"
 	"github.com/IPA-CyberLab/kmgm/storage"
@@ -33,17 +31,8 @@ type Environment struct {
 	ClientConn     *grpc.ClientConn
 }
 
-func NewEnvironment(stor *storage.Storage) (*Environment, error) {
+func NewEnvironment(fe frontend.Frontend, stor *storage.Storage) (*Environment, error) {
 	l := zap.L()
-
-	var fe frontend.Frontend
-	if isatty.IsTerminal(os.Stdin.Fd()) {
-		fe = &frontend.NonInteractive{
-			Logger: l,
-		}
-	} else {
-		fe = promptuife.Frontend{}
-	}
 
 	cfg := &Environment{
 		Storage:  stor,

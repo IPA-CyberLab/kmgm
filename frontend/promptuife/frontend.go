@@ -46,6 +46,8 @@ func stripTrailingWhitespace(s string) string {
 	return strings.TrimRight(s, " \n")
 }
 
+func (fe Frontend) IsInteractive() bool { return true }
+
 func (fe Frontend) ShouldLoadDefaults() bool {
 	return true
 }

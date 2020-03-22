@@ -27,6 +27,12 @@ func DefaultConfig() (*Config, error) {
 	return cfg, err
 }
 
+func EmptyConfig() *Config {
+	return &Config{
+		Subject: &dname.Config{},
+	}
+}
+
 func (cfg *Config) Verify() error {
 	if err := cfg.Subject.Verify(); err != nil {
 		return fmt.Errorf("Subject.%w", err)

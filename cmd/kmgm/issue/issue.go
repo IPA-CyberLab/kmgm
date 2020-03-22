@@ -263,7 +263,7 @@ var Command = &cli.Command{
 			return nil
 		}
 
-		if err := setup.EnsureCA(env, nil, profile); err != nil {
+		if err := setup.EnsureCA(env, nil, profile, false); err != nil {
 			return err
 		}
 

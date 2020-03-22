@@ -37,7 +37,11 @@ func testEnv(t *testing.T) (*action.Environment, func()) {
 		t.Fatalf("storage.New: %v", err)
 	}
 
-	env, err := action.NewEnvironment(stor)
+	fe := &frontend.NonInteractive{
+		Logger: zap.L(),
+	}
+
+	env, err := action.NewEnvironment(fe, stor)
 	env.Frontend = &frontend.NonInteractive{Logger: zap.L()}
 
 	cfg, err := setup.DefaultConfig()

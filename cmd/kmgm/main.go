@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 	"time"
 
+	"github.com/mattn/go-isatty"
 	"github.com/urfave/cli/v2"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -18,6 +20,7 @@ import (
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/setup"
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/tool"
 	"github.com/IPA-CyberLab/kmgm/frontend"
+	"github.com/IPA-CyberLab/kmgm/frontend/promptuife"
 	"github.com/IPA-CyberLab/kmgm/ipapi"
 	"github.com/IPA-CyberLab/kmgm/storage"
 	"github.com/IPA-CyberLab/kmgm/version"
@@ -76,6 +79,10 @@ func NewApp() *cli.App {
 			Name:  "verbose",
 			Usage: "Enable verbose output",
 		},
+		&cli.BoolFlag{
+			Name:  "non-interactive",
+			Usage: "Use non-interactive frontend, which auto proceeds with default answers.",
+		},
 	}
 	app.Commands = []*cli.Command{
 		setup.Command,
@@ -90,8 +97,9 @@ func NewApp() *cli.App {
 			ipapi.EnableQuery = false
 		}
 
+		var logger *zap.Logger
 		if loggeri, ok := app.Metadata["Logger"]; ok {
-			logger := loggeri.(*zap.Logger)
+			logger = loggeri.(*zap.Logger)
 			zap.ReplaceGlobals(logger)
 		} else {
 			cfg := zap.NewProductionConfig()
@@ -105,35 +113,48 @@ func NewApp() *cli.App {
 				cfg.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
 			}
 
-			logger, err := cfg.Build()
+			logger, err = cfg.Build()
 			if err != nil {
 				return err
 			}
-			zap.ReplaceGlobals(logger)
 		}
 
 		stor, err := storage.New(c.String("basedir"))
 		if err != nil {
 			return err
 		}
-		env, err := action.NewEnvironment(stor)
-		if err != nil {
-			return err
-		}
-		env.ProfileName = c.String("profile")
 
+		var fe frontend.Frontend
 		configFile := c.String("config")
 		if configFile != "" {
 			bs, err := ioutil.ReadFile(configFile)
 			if err != nil {
 				return fmt.Errorf("Failed to read specified config file: %w", err)
 			}
-			env.Frontend = &frontend.NonInteractive{
-				Logger:     env.Logger,
-				ConfigText: string(bs),
+			s := string(bs)
+			if strings.TrimSpace(s) == "" {
+				return fmt.Errorf("The specified config file %s was empty.", configFile)
 			}
+			fe = &frontend.NonInteractive{
+				Logger:     logger,
+				ConfigText: s,
+			}
+		} else if c.Bool("non-interactive") || isatty.IsTerminal(os.Stdin.Fd()) {
+			fe = &frontend.NonInteractive{
+				Logger: logger,
+			}
+		} else {
+			fe = promptuife.Frontend{}
 		}
+
+		env, err := action.NewEnvironment(fe, stor)
+		if err != nil {
+			return err
+		}
+		env.ProfileName = c.String("profile")
+
 		action.GlobalEnvironment = env
+		zap.ReplaceGlobals(env.Logger)
 
 		return nil
 	}

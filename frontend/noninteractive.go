@@ -20,8 +20,15 @@ func (fe *NonInteractive) Confirm(q string) error {
 	return nil
 }
 
-// FIXME[P2] Test me
 func (fe *NonInteractive) ShouldLoadDefaults() bool {
+	if fe.ConfigText == "" {
+		// If no ConfigText provided, setup relies on cmdline flags only, which
+		// user would want to rely on defaults.
+		return true
+	}
+
+	// Iff "noDefault: false" was specified, do load defaults.
+	// Otherwise, start from scratch.
 	s := struct {
 		NoDefault bool `yaml:"noDefault"`
 	}{false}
@@ -30,6 +37,8 @@ func (fe *NonInteractive) ShouldLoadDefaults() bool {
 	}
 	return !s.NoDefault
 }
+
+func (fe *NonInteractive) IsInteractive() bool { return false }
 
 func (fe *NonInteractive) EditText(beforeEdit string, validator func(string) (string, error)) (string, error) {
 	slog := fe.Logger.Sugar()

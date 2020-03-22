@@ -1,6 +1,8 @@
 package setup
 
 import (
+	"errors"
+
 	"github.com/urfave/cli/v2"
 
 	"github.com/IPA-CyberLab/kmgm/action"
@@ -10,16 +12,36 @@ import (
 	"github.com/IPA-CyberLab/kmgm/structflags"
 )
 
+type Config struct {
+	Setup *setup.Config `yaml:"setup" flags:""`
+
+	// This is here to avoid UnmarshalStrict throw error when noDefault was specified for ShouldLoadDefaults().
+	XXX_NoDefault bool `yaml:"noDefault"`
+}
+
+func (c *Config) Verify() error {
+	if err := c.Setup.Verify(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // FIXME[P2]: Should escape
 const configTemplateText = `
 ---
 # kmgm PKI CA config
-{{ template "subject" .Subject }}
+setup:
+{{ with .Setup }}
+  {{ template "subject" .Subject }}
 
-keyType: {{ .KeyType }}
+  keyType: {{ .KeyType }}
+{{ end -}}
 `
 
-func EnsureCA(env *action.Environment, cfg *setup.Config, profile *storage.Profile) error {
+var ErrCantRunInteractiveCaSetup = errors.New("EnsureCA: Could not resort to interactive CA setup due to non-interactive frontend.")
+
+func EnsureCA(env *action.Environment, cfg *Config, profile *storage.Profile, isSetupCommand bool) error {
 	slog := env.Logger.Sugar()
 
 	st := profile.Status()
@@ -30,14 +52,18 @@ func EnsureCA(env *action.Environment, cfg *setup.Config, profile *storage.Profi
 	if st.Code != storage.NotCA {
 		return st
 	}
+	if !isSetupCommand && !env.Frontend.IsInteractive() {
+		return ErrCantRunInteractiveCaSetup
+	}
 
 	if cfg == nil {
-		var err error
-		cfg, err = setup.DefaultConfig()
+		setupcfg, err := setup.DefaultConfig()
 		// setup.DefaultConfig errors are ignorable.
 		if err != nil {
 			slog.Debugf("Errors encountered while constructing default CA config: %v", err)
 		}
+
+		cfg = &Config{Setup: setupcfg}
 	}
 
 	slog.Infof("Starting CA setup for %v.", profile)
@@ -46,9 +72,10 @@ func EnsureCA(env *action.Environment, cfg *setup.Config, profile *storage.Profi
 		return err
 	}
 
-	if err := setup.Run(env, cfg); err != nil {
+	if err := setup.Run(env, cfg.Setup); err != nil {
 		return err
 	}
+	slog.Info("CA setup successfully completed for %v", profile)
 	return nil
 }
 
@@ -65,17 +92,32 @@ var Command = &cli.Command{
 		env := action.GlobalEnvironment
 		slog := env.Logger.Sugar()
 
-		// FIXME[P1]: noDefault
-		cfg, err := setup.DefaultConfig()
+		profile, err := env.Profile()
+		if err != nil {
+			return err
+		}
+
+		cfg := &Config{}
+		if c.Bool("dump-template") || env.Frontend.ShouldLoadDefaults() {
+			slog.Debugf("Constructing default config.")
+
+			setupcfg, err := setup.DefaultConfig()
+			// setup.DefaultConfig errors are ignorable.
+			if err != nil {
+				slog.Debugf("Errors encountered while constructing default config: %v", err)
+			}
+
+			cfg.Setup = setupcfg
+		} else {
+			slog.Debugf("Config is from scratch.")
+			cfg.Setup = setup.EmptyConfig()
+		}
+
 		if c.Bool("dump-template") {
 			if err := frontend.DumpTemplate(configTemplateText, cfg); err != nil {
 				return err
 			}
 			return nil
-		}
-		// setup.DefaultConfig errors are ignorable.
-		if err != nil {
-			slog.Debugf("Errors encountered while constructing default config: %v", err)
 		}
 
 		// FIXME[P1]: This must come after EditStructWithVerifier.
@@ -83,12 +125,7 @@ var Command = &cli.Command{
 			return err
 		}
 
-		profile, err := env.Profile()
-		if err != nil {
-			return err
-		}
-
-		if err := EnsureCA(env, cfg, profile); err != nil {
+		if err := EnsureCA(env, cfg, profile, true); err != nil {
 			return err
 		}
 

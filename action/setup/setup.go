@@ -103,6 +103,8 @@ func createCertificate(env *action.Environment, cfg *Config, priv crypto.Private
 }
 
 func Run(env *action.Environment, cfg *Config) error {
+	slog := env.Logger.Sugar()
+
 	profile, err := env.Profile()
 	if err != nil {
 		return err
@@ -126,6 +128,10 @@ func Run(env *action.Environment, cfg *Config) error {
 	if err != nil {
 		return err
 	}
+	if err := profile.WriteCAPrivateKey(priv); err != nil {
+		return err
+	}
+	slog.Infof("The CA private key saved to file: %s", profile.CAPrivateKeyPath())
 
 	certDer, err := createCertificate(env, cfg, priv)
 	if err != nil {
@@ -141,12 +147,10 @@ func Run(env *action.Environment, cfg *Config) error {
 		log.Printf("%s", buf.String())
 	*/
 
-	if err := profile.WriteCAPrivateKey(priv); err != nil {
-		return err
-	}
 	if err := profile.WriteCACertificateDer(certDer); err != nil {
 		return err
 	}
+	slog.Infof("The CA certificate saved to file: %s", profile.CACertPath())
 
 	return nil
 }
