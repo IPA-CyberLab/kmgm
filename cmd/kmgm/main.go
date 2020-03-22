@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	action "github.com/IPA-CyberLab/kmgm/action"
+	"github.com/IPA-CyberLab/kmgm/action"
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/issue"
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/list"
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/remote"
@@ -27,12 +27,12 @@ func SimpleTimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 	enc.AppendString(t.Format("15:04:05.999"))
 }
 
-func main() {
+func NewApp() *cli.App {
 	defaultStoragePath, err := storage.DefaultStoragePath()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to get default basedir: %v", err)
 		os.Exit(1)
-		return
+		return nil
 	}
 
 	app := cli.NewApp()
@@ -90,22 +90,27 @@ func main() {
 			ipapi.EnableQuery = false
 		}
 
-		cfg := zap.NewProductionConfig()
-		cfg.DisableCaller = !c.Bool("log-location")
-		if !c.Bool("log-json") {
-			cfg.Encoding = "console"
-			cfg.EncoderConfig.EncodeTime = SimpleTimeEncoder
-			cfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
-		}
-		if c.Bool("verbose") {
-			cfg.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
-		}
+		if loggeri, ok := app.Metadata["Logger"]; ok {
+			logger := loggeri.(*zap.Logger)
+			zap.ReplaceGlobals(logger)
+		} else {
+			cfg := zap.NewProductionConfig()
+			cfg.DisableCaller = !c.Bool("log-location")
+			if !c.Bool("log-json") {
+				cfg.Encoding = "console"
+				cfg.EncoderConfig.EncodeTime = SimpleTimeEncoder
+				cfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+			}
+			if c.Bool("verbose") {
+				cfg.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
+			}
 
-		logger, err := cfg.Build()
-		if err != nil {
-			return err
+			logger, err := cfg.Build()
+			if err != nil {
+				return err
+			}
+			zap.ReplaceGlobals(logger)
 		}
-		zap.ReplaceGlobals(logger)
 
 		stor, err := storage.New(c.String("basedir"))
 		if err != nil {
@@ -136,6 +141,12 @@ func main() {
 		zap.L().Sync()
 		return nil
 	}
+
+	return app
+}
+
+func main() {
+	app := NewApp()
 
 	if err := app.Run(os.Args); err != nil {
 		zap.S().Fatal(err)
