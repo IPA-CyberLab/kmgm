@@ -14,6 +14,7 @@ import (
 
 	main "github.com/IPA-CyberLab/kmgm/cmd/kmgm"
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/setup"
+	"github.com/IPA-CyberLab/kmgm/storage"
 )
 
 func prepareBasedir(t *testing.T) (string, func()) {
@@ -147,6 +148,62 @@ noDefault: false
 	logs, err := runKmgm(t, basedir, yaml, []string{"setup"})
 	expectErr(t, err, nil)
 	expectLogMessage(t, logs, "CA setup successfully completed")
+}
+
+func TestSetup_NoDefault(t *testing.T) {
+	basedir, teardown := prepareBasedir(t)
+	t.Cleanup(teardown)
+
+	yaml := []byte(`
+noDefault: true
+
+setup:
+  subject:
+    commonName: testCA
+
+  keyType: ecdsa
+`)
+
+	logs, err := runKmgm(t, basedir, yaml, []string{"setup"})
+	expectErr(t, err, nil)
+	expectLogMessage(t, logs, "CA setup successfully completed")
+
+	stor, err := storage.New(basedir)
+	if err != nil {
+		t.Fatalf("storage.New: %v", err)
+	}
+
+	prof, err := stor.Profile(storage.DefaultProfileName)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cacert, err := prof.ReadCACertificate()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(cacert.DNSNames) != 0 {
+		t.Errorf("Expected no SAN DNSNames for noDefault: true setups, but got %+v", cacert.DNSNames)
+	}
+}
+
+func TestSetup_NoDefault_NoKeyType(t *testing.T) {
+	basedir, teardown := prepareBasedir(t)
+	t.Cleanup(teardown)
+
+	yaml := []byte(`
+noDefault: true
+
+setup:
+  subject:
+    commonName: testCA
+`)
+
+	logs, err := runKmgm(t, basedir, yaml, []string{"setup"})
+	// FIXME[P1]: Better error message
+	expectErrMessage(t, err, "Unknown key type: any")
+	_ = logs
 }
 
 func TestIssue_NoCA(t *testing.T) {
