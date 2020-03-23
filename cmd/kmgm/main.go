@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -92,7 +93,7 @@ func NewApp() *cli.App {
 		serve.Command,
 		tool.Command,
 	}
-	app.Before = func(c *cli.Context) error {
+	BeforeImpl := func(c *cli.Context) error {
 		if c.Bool("no-geoip") {
 			ipapi.EnableQuery = false
 		}
@@ -155,6 +156,18 @@ func NewApp() *cli.App {
 
 		action.GlobalEnvironment = env
 		zap.ReplaceGlobals(env.Logger)
+
+		return nil
+	}
+	app.Before = func(c *cli.Context) error {
+		if err := BeforeImpl(c); err != nil {
+			// Print error message to stderr
+			app.Writer = app.ErrWriter
+
+			// Suppress help message on app.Before() failure.
+			cli.HelpPrinter = func(_ io.Writer, _ string, _ interface{}) {}
+			return err
+		}
 
 		return nil
 	}
