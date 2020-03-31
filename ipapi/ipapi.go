@@ -28,10 +28,15 @@ const Endpoint = "http://ip-api.com/json"
 
 var EnableQuery bool = true
 var ErrQueryDisabled = errors.New("ipapi: Query disabled by user.")
+var MockResult *Result = nil
 
 func Query() (*Result, error) {
 	if !EnableQuery {
 		return nil, ErrQueryDisabled
+	}
+
+	if MockResult != nil {
+		return MockResult, nil
 	}
 
 	resp, err := http.Get(Endpoint)

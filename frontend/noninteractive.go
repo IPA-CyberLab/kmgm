@@ -10,6 +10,7 @@ import (
 type NonInteractive struct {
 	Logger     *zap.Logger
 	ConfigText string
+	NoDefault  bool
 }
 
 var _ = Frontend(&NonInteractive{})
@@ -23,8 +24,8 @@ func (fe *NonInteractive) Confirm(q string) error {
 func (fe *NonInteractive) ShouldLoadDefaults() bool {
 	if fe.ConfigText == "" {
 		// If no ConfigText provided, setup relies on cmdline flags only, which
-		// user would want to rely on defaults.
-		return true
+		// user would want to rely on defaults unless --no-default was specified.
+		return !fe.NoDefault
 	}
 
 	// Iff "noDefault: false" was specified, do load defaults.

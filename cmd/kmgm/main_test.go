@@ -2,6 +2,7 @@ package main_test
 
 import (
 	"bytes"
+	"crypto/x509/pkix"
 	"errors"
 	"io/ioutil"
 	"os"
@@ -14,8 +15,20 @@ import (
 
 	main "github.com/IPA-CyberLab/kmgm/cmd/kmgm"
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/setup"
+	"github.com/IPA-CyberLab/kmgm/ipapi"
 	"github.com/IPA-CyberLab/kmgm/storage"
 )
+
+var noDefaultYaml = []byte(`
+noDefault: true
+`)
+
+func init() {
+	ipapi.MockResult = &ipapi.Result{
+		RegionName:  "California",
+		CountryCode: "US",
+	}
+}
 
 func prepareBasedir(t *testing.T) (string, func()) {
 	t.Helper()
@@ -26,6 +39,27 @@ func prepareBasedir(t *testing.T) (string, func()) {
 	}
 
 	return basedir, func() { os.RemoveAll(basedir) }
+}
+
+func readCASubject(t *testing.T, basedir string) pkix.Name {
+	t.Helper()
+
+	stor, err := storage.New(basedir)
+	if err != nil {
+		t.Fatalf("storage.New: %v", err)
+	}
+
+	prof, err := stor.Profile(storage.DefaultProfileName)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cacert, err := prof.ReadCACertificate()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return cacert.Subject
 }
 
 func runKmgm(t *testing.T, basedir string, configYaml []byte, args []string) (*observer.ObservedLogs, error) {
@@ -168,23 +202,10 @@ setup:
 	expectErr(t, err, nil)
 	expectLogMessage(t, logs, "CA setup successfully completed")
 
-	stor, err := storage.New(basedir)
-	if err != nil {
-		t.Fatalf("storage.New: %v", err)
-	}
+	s := readCASubject(t, basedir)
 
-	prof, err := stor.Profile(storage.DefaultProfileName)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	cacert, err := prof.ReadCACertificate()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if len(cacert.DNSNames) != 0 {
-		t.Errorf("Expected no SAN DNSNames for noDefault: true setups, but got %+v", cacert.DNSNames)
+	if len(s.Country) != 0 {
+		t.Errorf("Expected no Country for noDefault: true setups, but got %+v", s.Country)
 	}
 }
 
@@ -206,15 +227,57 @@ setup:
 	_ = logs
 }
 
+func TestSetup_Flags(t *testing.T) {
+	basedir, teardown := prepareBasedir(t)
+	t.Cleanup(teardown)
+
+	logs, err := runKmgm(t, basedir, nil, []string{"setup", "--country", "JP"})
+	expectErr(t, err, nil)
+	_ = logs
+
+	s := readCASubject(t, basedir)
+
+	if s.CommonName == "" {
+		t.Errorf("Expected non-empty CommonName, but got empty")
+	}
+
+	if s.Province[0] != "California" {
+		t.Errorf("Wront Province %+v", s.Province)
+	}
+
+	if s.Country[0] != "JP" {
+		t.Errorf("wrong country %q", s.Country[0])
+	}
+}
+
+func TestSetup_NoDefault_Flags(t *testing.T) {
+	basedir, teardown := prepareBasedir(t)
+	t.Cleanup(teardown)
+
+	logs, err := runKmgm(t, basedir, nil, []string{"--no-default", "setup", "--country", "JP", "--key-type", "rsa"})
+	expectErr(t, err, nil)
+	_ = logs
+
+	s := readCASubject(t, basedir)
+
+	if s.CommonName != "" {
+		t.Errorf("Expected no CommonName, but got %v", s.CommonName)
+	}
+
+	if len(s.Province) != 0 {
+		t.Errorf("Expected no Province, but got %+v", s.Province)
+	}
+
+	if s.Country[0] != "JP" {
+		t.Errorf("wrong country %q", s.Country[0])
+	}
+}
+
 func TestIssue_NoCA(t *testing.T) {
 	basedir, teardown := prepareBasedir(t)
 	t.Cleanup(teardown)
 
-	yaml := []byte(`
-noDefault: true
-`)
-
-	logs, err := runKmgm(t, basedir, yaml, []string{"issue"})
+	logs, err := runKmgm(t, basedir, nil, []string{"issue"})
 	expectErr(t, err, setup.ErrCantRunInteractiveCaSetup)
 	_ = logs //expectLogMessage(t, logs, "")
 }
