@@ -13,10 +13,15 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
+	"github.com/IPA-CyberLab/kmgm/action"
+	setupa "github.com/IPA-CyberLab/kmgm/action/setup"
 	main "github.com/IPA-CyberLab/kmgm/cmd/kmgm"
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/setup"
+	"github.com/IPA-CyberLab/kmgm/dname"
+	"github.com/IPA-CyberLab/kmgm/frontend"
 	"github.com/IPA-CyberLab/kmgm/ipapi"
 	"github.com/IPA-CyberLab/kmgm/storage"
+	"github.com/IPA-CyberLab/kmgm/wcrypto"
 )
 
 var noDefaultYaml = []byte(`
@@ -177,6 +182,11 @@ func TestSetup_Default(t *testing.T) {
 
 	yaml := []byte(`
 noDefault: false
+
+issue:
+  subject:
+    commonName: test
+
 `)
 
 	logs, err := runKmgm(t, basedir, yaml, []string{"setup"})
@@ -280,4 +290,74 @@ func TestIssue_NoCA(t *testing.T) {
 	logs, err := runKmgm(t, basedir, nil, []string{"issue"})
 	expectErr(t, err, setup.ErrCantRunInteractiveCaSetup)
 	_ = logs //expectLogMessage(t, logs, "")
+}
+
+func setupCA(t *testing.T, basedir string) {
+	t.Helper()
+
+	stor, err := storage.New(basedir)
+	if err != nil {
+		t.Fatalf("storage.New: %v", err)
+	}
+
+	fe := &frontend.NonInteractive{
+		Logger: zap.L(),
+	}
+
+	env, err := action.NewEnvironment(fe, stor)
+	env.Frontend = &frontend.NonInteractive{Logger: zap.L()}
+
+	cfg := &setupa.Config{
+		Subject: &dname.Config{
+			CommonName:         "test_CA_",
+			Organization:       "test_CA_Org",
+			OrganizationalUnit: "test_CA_OU",
+			Country:            "JP",
+			Locality:           "test_CA_L",
+			Province:           "test_CA_P",
+			StreetAddress:      "test_CA_SA",
+			PostalCode:         "test_CA_PC",
+		},
+		KeyType: wcrypto.KeyRSA4096,
+	}
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	if err := setupa.Run(env, cfg); err != nil {
+		t.Fatalf("setup.Run: %v", err)
+	}
+}
+
+func TestIssue_Default(t *testing.T) {
+	basedir, teardown := prepareBasedir(t)
+	t.Cleanup(teardown)
+
+	setupCA(t, basedir)
+
+	logs, err := runKmgm(t, basedir, nil, []string{"issue"})
+	expectErr(t, err, nil)
+	expectLogMessage(t, logs, "Generating certificate... Done.")
+}
+
+func TestIssue_Yaml(t *testing.T) {
+	basedir, teardown := prepareBasedir(t)
+	t.Cleanup(teardown)
+
+	setupCA(t, basedir)
+
+	yaml := []byte(`
+issue:
+  subject:
+    commonName: leaf_CN
+  keyType: rsa
+  keyUsage:
+    preset: tlsClientServer
+  validity: 30d
+
+noDefault: true
+`)
+
+	logs, err := runKmgm(t, basedir, yaml, []string{"issue"})
+	expectErr(t, err, nil)
+	expectLogMessage(t, logs, "Generating certificate... Done.")
 }
