@@ -11,7 +11,6 @@ import (
 	// "github.com/zmap/zlint"
 
 	"github.com/IPA-CyberLab/kmgm/action"
-	"github.com/IPA-CyberLab/kmgm/action/issue"
 	"github.com/IPA-CyberLab/kmgm/consts"
 	"github.com/IPA-CyberLab/kmgm/frontend/validate"
 	"github.com/IPA-CyberLab/kmgm/storage/issuedb"
@@ -76,7 +75,7 @@ func createCertificate(env *action.Environment, cfg *Config, priv crypto.Private
 		MaxPathLen:     0,
 		MaxPathLenZero: true,
 
-		NotAfter:  issue.FarFuture.NotAfter,
+		NotAfter:  cfg.Validity.GetNotAfter(start).UTC(),
 		NotBefore: start.Add(-consts.NodesOutOfSyncThreshold).UTC(),
 
 		// FIXME[P2]: https://crypto.stackexchange.com/questions/257/unpredictability-of-x-509-serial-numbers

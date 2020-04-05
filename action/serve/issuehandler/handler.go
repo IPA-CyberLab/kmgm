@@ -15,6 +15,7 @@ import (
 	"github.com/IPA-CyberLab/kmgm/action/issue"
 	"github.com/IPA-CyberLab/kmgm/dname"
 	"github.com/IPA-CyberLab/kmgm/httperr"
+	"github.com/IPA-CyberLab/kmgm/validityperiod"
 	"github.com/IPA-CyberLab/kmgm/keyusage"
 	"github.com/IPA-CyberLab/kmgm/pemparser"
 	"github.com/IPA-CyberLab/kmgm/san"
@@ -217,7 +218,7 @@ func (h *Handler) serveHTTPIfPossible(w http.ResponseWriter, r *http.Request) er
 		Subject:  subject,
 		Names:    ns,
 		KeyUsage: keyusage.KeyUsageTLSClientServer.Clone(),
-		Validity: issue.ValidityPeriod{Days: days},
+		Validity: validityperiod.ValidityPeriod{Days: days},
 	}
 
 	certDer, err := issue.Run(h.env, pub, &cfg)

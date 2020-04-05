@@ -17,6 +17,7 @@ import (
 	"github.com/IPA-CyberLab/kmgm/keyusage"
 	"github.com/IPA-CyberLab/kmgm/remote/issue"
 	"github.com/IPA-CyberLab/kmgm/storage"
+	"github.com/IPA-CyberLab/kmgm/validityperiod"
 	"github.com/IPA-CyberLab/kmgm/wcrypto"
 )
 
@@ -84,7 +85,7 @@ func IssueCertPair(ctx context.Context, env *action.Environment) error {
 			CommonName: hostname,
 		},
 		KeyUsage: keyusage.KeyUsageTLSClient,
-		Validity: localissue.FarFuture,
+		Validity: validityperiod.FarFuture,
 		KeyType:  wcrypto.ServerKeyType,
 	}
 	certDer, err := issue.IssueCertificate(ctx, env, pub, cfg)

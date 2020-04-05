@@ -11,6 +11,7 @@ import (
 	"github.com/IPA-CyberLab/kmgm/action"
 	"github.com/IPA-CyberLab/kmgm/action/issue"
 	"github.com/IPA-CyberLab/kmgm/dname"
+	"github.com/IPA-CyberLab/kmgm/validityperiod"
 	"github.com/IPA-CyberLab/kmgm/keyusage"
 	"github.com/IPA-CyberLab/kmgm/pb"
 	"github.com/IPA-CyberLab/kmgm/remote/user"
@@ -48,7 +49,7 @@ func (svc *Service) IssueCertificate(ctx context.Context, req *pb.IssueCertifica
 		Subject:  dname.FromProtoStruct(req.Subject),
 		Names:    ns,
 		KeyUsage: keyusage.FromProtoStruct(req.KeyUsage),
-		Validity: issue.ValidityPeriod{
+		Validity: validityperiod.ValidityPeriod{
 			NotAfter: time.Unix(req.NotAfterUnixtime, 0).UTC(),
 		},
 	}

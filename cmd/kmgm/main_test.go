@@ -6,8 +6,10 @@ import (
 	"errors"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"regexp"
 	"testing"
+	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -183,10 +185,9 @@ func TestSetup_Default(t *testing.T) {
 	yaml := []byte(`
 noDefault: false
 
-issue:
+setup:
   subject:
     commonName: test
-
 `)
 
 	logs, err := runKmgm(t, basedir, yaml, []string{"setup"})
@@ -206,6 +207,7 @@ setup:
     commonName: testCA
 
   keyType: ecdsa
+  validity: farfuture
 `)
 
 	logs, err := runKmgm(t, basedir, yaml, []string{"setup"})
@@ -229,6 +231,8 @@ noDefault: true
 setup:
   subject:
     commonName: testCA
+
+  validity: farfuture
 `)
 
 	logs, err := runKmgm(t, basedir, yaml, []string{"setup"})
@@ -264,7 +268,7 @@ func TestSetup_NoDefault_Flags(t *testing.T) {
 	basedir, teardown := prepareBasedir(t)
 	t.Cleanup(teardown)
 
-	logs, err := runKmgm(t, basedir, nil, []string{"--no-default", "setup", "--country", "JP", "--key-type", "rsa"})
+	logs, err := runKmgm(t, basedir, nil, []string{"--no-default", "setup", "--country", "JP", "--key-type", "rsa", "--validity", "7d"})
 	expectErr(t, err, nil)
 	_ = logs
 
@@ -320,6 +324,10 @@ func setupCA(t *testing.T, basedir string) {
 		},
 		KeyType: wcrypto.KeyRSA4096,
 	}
+	cfg.Validity.UnmarshalFlag("30d")
+	if err := cfg.Verify(time.Now()); err != nil {
+		t.Fatalf("cfg.Verify: %v", err)
+	}
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -334,9 +342,24 @@ func TestIssue_Default(t *testing.T) {
 
 	setupCA(t, basedir)
 
-	logs, err := runKmgm(t, basedir, nil, []string{"issue"})
+	certPath := filepath.Join(basedir, "issue.cert.pem")
+	logs, err := runKmgm(t, basedir, nil, []string{"issue",
+		"--priv", filepath.Join(basedir, "issue.priv.pem"),
+		"--cert", certPath,
+		"--cn", "leaf_CN",
+	})
 	expectErr(t, err, nil)
 	expectLogMessage(t, logs, "Generating certificate... Done.")
+
+	cert, err := storage.ReadCertificateFile(certPath)
+	if err != nil {
+		t.Fatalf("cert read: %v", err)
+	}
+
+	ss := cert.Subject.String()
+	if ss != "CN=leaf_CN,OU=test_CA_OU,O=test_CA_Org,POSTALCODE=test_CA_PC,STREET=test_CA_SA,L=test_CA_L,ST=test_CA_P,C=JP" {
+		t.Errorf("subj: %s", cert.Subject.String())
+	}
 }
 
 func TestIssue_Yaml(t *testing.T) {
@@ -357,7 +380,21 @@ issue:
 noDefault: true
 `)
 
-	logs, err := runKmgm(t, basedir, yaml, []string{"issue"})
+	certPath := filepath.Join(basedir, "issue.cert.pem")
+	logs, err := runKmgm(t, basedir, yaml, []string{"issue",
+		"--priv", filepath.Join(basedir, "issue.priv.pem"),
+		"--cert", certPath,
+	})
 	expectErr(t, err, nil)
 	expectLogMessage(t, logs, "Generating certificate... Done.")
+
+	cert, err := storage.ReadCertificateFile(certPath)
+	if err != nil {
+		t.Fatalf("cert read: %v", err)
+	}
+
+	ss := cert.Subject.String()
+	if ss != "CN=leaf_CN" {
+		t.Errorf("subj: %s", cert.Subject.String())
+	}
 }

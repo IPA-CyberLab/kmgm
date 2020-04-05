@@ -2,6 +2,7 @@ package setup
 
 import (
 	"errors"
+	"time"
 
 	"github.com/urfave/cli/v2"
 
@@ -20,7 +21,7 @@ type Config struct {
 }
 
 func (c *Config) Verify() error {
-	if err := c.Setup.Verify(); err != nil {
+	if err := c.Setup.Verify(time.Now()); err != nil {
 		return err
 	}
 
@@ -34,6 +35,13 @@ const configTemplateText = `
 setup:
 {{ with .Setup }}
   {{ template "subject" .Subject }}
+
+  # validity specifies the lifetime the ca is valid for.
+  validity: {{ printf "%v" .Validity }}
+  # validity: 30d # valid for 30 days from now.
+  # validity: 2y # valid for 2 years from now.
+  # validity: 20220530 # valid until yyyyMMdd.
+  # validity: farfuture # valid effectively forever
 
   keyType: {{ .KeyType }}
 {{ end -}}
