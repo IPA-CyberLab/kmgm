@@ -54,10 +54,8 @@ func ReadOrGenerateKey(env *action.Environment, ktype wcrypto.KeyType, privPath 
 		if err != nil {
 			return nil, "", err
 		}
-		// FIXME[P2]: Check key type if specified
 
 		slog.Infof("Successfully read private key: %v", reflect.TypeOf(priv))
-
 		return priv, privPath, nil
 	}
 	if !os.IsNotExist(err) {
@@ -203,13 +201,32 @@ type Config struct {
 }
 
 func (c *Config) Verify() error {
-	// FIXME[P2]: Check PrivateKeyPath here as well? (currently checked in ReadOrGenerateKey)
 	// FIXME[P2]: Check CertPath here as well? (currently checked in PromptCertPath)
 
 	if err := c.Issue.Verify(time.Now()); err != nil {
 		return err
 	}
 
+	if c.Issue.KeyType != wcrypto.KeyAny {
+		priv, err := storage.ReadPrivateKeyFile(c.PrivateKeyPath)
+		if errors.Is(err, os.ErrNotExist) {
+			// We are good here, since there is no preexisting key file to enforce the key type.
+		} else if err != nil {
+			return err
+		}
+
+		pub, err := wcrypto.ExtractPublicKey(priv)
+		if err != nil {
+			return err
+		}
+		ktype, err := wcrypto.KeyTypeOfPub(pub)
+		if err != nil {
+			return err
+		}
+		if ktype != c.Issue.KeyType {
+			return fmt.Errorf("Existing key %q was expected to have key type %v but had %v", c.PrivateKeyPath, c.Issue.KeyType, ktype)
+		}
+	}
 	return nil
 }
 

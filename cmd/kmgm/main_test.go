@@ -2,8 +2,10 @@ package main_test
 
 import (
 	"bytes"
+	"crypto/rand"
 	"crypto/x509/pkix"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -397,4 +399,40 @@ noDefault: true
 	if ss != "CN=leaf_CN" {
 		t.Errorf("subj: %s", cert.Subject.String())
 	}
+}
+
+func TestIssue_WrongKeyType(t *testing.T) {
+	basedir, teardown := prepareBasedir(t)
+	t.Cleanup(teardown)
+
+	setupCA(t, basedir)
+
+	privPath := filepath.Join(basedir, "issue.priv.pem")
+	priv, err := wcrypto.GenerateKey(rand.Reader, wcrypto.KeySECP256R1, "", zap.L())
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	if err := storage.WritePrivateKeyFile(privPath, priv); err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	certPath := filepath.Join(basedir, "issue.cert.pem")
+	yaml := []byte(fmt.Sprintf(`
+issue:
+  subject:
+    commonName: leaf_CN
+  keyType: rsa
+  keyUsage:
+    preset: tlsClientServer
+  validity: 30d
+
+certPath: %s
+privateKeyPath: %s
+
+noDefault: true
+`, certPath, privPath))
+
+	logs, err := runKmgm(t, basedir, yaml, []string{"issue"})
+	expectErrMessage(t, err, "expected to have key type")
+	_ = logs
 }
