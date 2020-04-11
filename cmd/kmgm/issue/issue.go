@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"reflect"
 	"time"
 
 	"github.com/urfave/cli/v2"
@@ -24,59 +23,115 @@ import (
 
 var ErrCertKeyPathConflict = errors.New("Specified path conflicts with private key output path.")
 
-func ReadOrGenerateKey(env *action.Environment, ktype wcrypto.KeyType, privPath string) (crypto.PrivateKey, string, error) {
+func PrepareKeyTypePath(env *action.Environment, ktype *wcrypto.KeyType, privPath *string) error {
 	slog := env.Logger.Sugar()
 
 	cwd, err := os.Getwd()
 	if err != nil {
-		return nil, "", err
+		return err
 	}
 
-	if privPath == "" {
-		privPath = filepath.Join(cwd, "key.pem")
+	if *privPath == "" {
+		*privPath = filepath.Join(cwd, "key.pem")
 		items := []frontend.ConfigItem{
 			frontend.ConfigItem{
 				Label:    "Private key file",
 				Validate: validate.File,
-				Value:    &privPath,
+				Value:    privPath,
 			},
 		}
 		if err := env.Frontend.Configure(items); err != nil {
-			return nil, "", err
+			return err
 		}
 	}
 
-	_, err = os.Stat(privPath)
+	_, err = os.Stat(*privPath)
+	if err == nil {
+		slog.Infof("Found an existing key file %q", privPath)
+
+		priv, err := storage.ReadPrivateKeyFile(*privPath)
+		if err != nil {
+			return err
+		}
+
+		pub, err := wcrypto.ExtractPublicKey(priv)
+		if err != nil {
+			return err
+		}
+
+		extractType, err := wcrypto.KeyTypeOfPub(pub)
+		if err != nil {
+			return err
+		}
+		slog.Infof("Successfully read private key of type %v", extractType)
+
+		if *ktype != wcrypto.KeyAny && *ktype != extractType {
+			return &UnexpectedKeyTypeErr{Expected: *ktype, Actual: extractType}
+		}
+		return nil
+	}
+	if !os.IsNotExist(err) {
+		return fmt.Errorf("os.Stat(%q): %w", *privPath, err)
+	}
+
+	if err := validate.MkdirAndCheckWritable(*privPath); err != nil {
+		return err
+	}
+
+	// FIXME[P2]: Prompt key type
+
+	priv, err := wcrypto.GenerateKey(env.Randr, *ktype, "", env.Logger)
+	if err != nil {
+		return err
+	}
+	if err := storage.WritePrivateKeyFile(*privPath, priv); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func EnsurePrivateKey(env *action.Environment, ktype wcrypto.KeyType, privPath string) (crypto.PrivateKey, error) {
+	slog := env.Logger.Sugar()
+
+	_, err := os.Stat(privPath)
 	if err == nil {
 		slog.Infof("Found an existing key file %q", privPath)
 
 		priv, err := storage.ReadPrivateKeyFile(privPath)
 		if err != nil {
-			return nil, "", err
+			return nil, err
 		}
 
-		slog.Infof("Successfully read private key: %v", reflect.TypeOf(priv))
-		return priv, privPath, nil
+		pub, err := wcrypto.ExtractPublicKey(priv)
+		if err != nil {
+			return nil, err
+		}
+
+		extractType, err := wcrypto.KeyTypeOfPub(pub)
+		if err != nil {
+			return nil, err
+		}
+		slog.Infof("Successfully read private key of type %v", extractType)
+
+		if ktype != wcrypto.KeyAny && ktype != extractType {
+			return nil, &UnexpectedKeyTypeErr{Expected: ktype, Actual: extractType}
+		}
+		return priv, nil
 	}
 	if !os.IsNotExist(err) {
-		return nil, "", fmt.Errorf("os.Stat(%q): %w", privPath, err)
+		return nil, fmt.Errorf("os.Stat(%q): %w", privPath, err)
 	}
-
-	if err := validate.MkdirAndCheckWritable(privPath); err != nil {
-		return nil, "", err
-	}
-
-	// FIXME[P2]: Prompt key type
 
 	priv, err := wcrypto.GenerateKey(env.Randr, ktype, "", env.Logger)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 	if err := storage.WritePrivateKeyFile(privPath, priv); err != nil {
-		return nil, "", err
+		return nil, err
 	}
 
-	return priv, privPath, nil
+	return priv, nil
 }
 
 func PromptCertPath(env *action.Environment, privPath, certPath string) (string, error) {
@@ -132,7 +187,6 @@ func PromptCertPath(env *action.Environment, privPath, certPath string) (string,
 	return certPath, nil
 }
 
-// FIXME[P1]: keyType
 // FIXME[P2]: Should escape
 const ConfigTemplateText = `
 ---
@@ -200,6 +254,20 @@ type Config struct {
 	XXX_NoDefault bool `yaml:"noDefault"`
 }
 
+type UnexpectedKeyTypeErr struct {
+	Expected wcrypto.KeyType
+	Actual   wcrypto.KeyType
+}
+
+func (e *UnexpectedKeyTypeErr) Error() string {
+	return fmt.Sprintf("Expected key type of %s but specified key %s", e.Expected, e.Actual)
+}
+
+func (*UnexpectedKeyTypeErr) Is(target error) bool {
+	_, ok := target.(*UnexpectedKeyTypeErr)
+	return ok
+}
+
 func (c *Config) Verify() error {
 	// FIXME[P2]: Check CertPath here as well? (currently checked in PromptCertPath)
 
@@ -224,7 +292,7 @@ func (c *Config) Verify() error {
 			return err
 		}
 		if ktype != c.Issue.KeyType {
-			return fmt.Errorf("Existing key %q was expected to have key type %v but had %v", c.PrivateKeyPath, c.Issue.KeyType, ktype)
+			return fmt.Errorf("Existing key %q: %w", c.PrivateKeyPath, &UnexpectedKeyTypeErr{Expected: c.Issue.KeyType, Actual: ktype})
 		}
 	}
 	return nil
@@ -284,15 +352,9 @@ var Command = &cli.Command{
 			return err
 		}
 
-		var priv crypto.PrivateKey
-		priv, cfg.PrivateKeyPath, err = ReadOrGenerateKey(env, cfg.Issue.KeyType, cfg.PrivateKeyPath)
+		err = PrepareKeyTypePath(env, &cfg.Issue.KeyType, &cfg.PrivateKeyPath)
 		if err != nil {
 			return fmt.Errorf("Failed to acquire private key: %w", err)
-		}
-
-		pub, err := wcrypto.ExtractPublicKey(priv)
-		if err != nil {
-			return err
 		}
 
 		cfg.CertPath, err = PromptCertPath(env, cfg.PrivateKeyPath, cfg.CertPath)
@@ -305,6 +367,16 @@ var Command = &cli.Command{
 			return err
 		}
 		if err := structflags.PopulateStructFromCliContext(cfg, c); err != nil {
+			return err
+		}
+
+		priv, err := EnsurePrivateKey(env, cfg.Issue.KeyType, cfg.PrivateKeyPath)
+		if err != nil {
+			return err
+		}
+
+		pub, err := wcrypto.ExtractPublicKey(priv)
+		if err != nil {
 			return err
 		}
 

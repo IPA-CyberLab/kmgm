@@ -40,7 +40,7 @@ var Command = &cli.Command{
 		}
 
 		var priv crypto.PrivateKey
-		priv, cfg.PrivateKeyPath, err = localissue.ReadOrGenerateKey(env, cfg.Issue.KeyType, cfg.PrivateKeyPath)
+		// FIXME: priv, cfg.PrivateKeyPath, err = localissue.ReadOrGenerateKey(env, cfg.Issue.KeyType, cfg.PrivateKeyPath)
 		if err != nil {
 			return fmt.Errorf("Failed to acquire private key: %w", err)
 		}

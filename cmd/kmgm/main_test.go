@@ -20,6 +20,7 @@ import (
 	"github.com/IPA-CyberLab/kmgm/action"
 	setupa "github.com/IPA-CyberLab/kmgm/action/setup"
 	main "github.com/IPA-CyberLab/kmgm/cmd/kmgm"
+	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/issue"
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/setup"
 	"github.com/IPA-CyberLab/kmgm/dname"
 	"github.com/IPA-CyberLab/kmgm/frontend"
@@ -133,6 +134,8 @@ func expectLogMessage(t *testing.T, logs *observer.ObservedLogs, expectedRE stri
 }
 
 func expectErrMessage(t *testing.T, err error, expectedRE string) {
+	t.Helper()
+
 	if err == nil {
 		t.Errorf("No error occured while expecting error message that match %s", expectedRE)
 		return
@@ -433,6 +436,6 @@ noDefault: true
 `, certPath, privPath))
 
 	logs, err := runKmgm(t, basedir, yaml, []string{"issue"})
-	expectErrMessage(t, err, "expected to have key type")
+	expectErr(t, err, &issue.UnexpectedKeyTypeErr{})
 	_ = logs
 }
