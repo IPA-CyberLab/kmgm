@@ -83,7 +83,7 @@ func EnsureCA(env *action.Environment, cfg *Config, profile *storage.Profile, is
 	if err := setup.Run(env, cfg.Setup); err != nil {
 		return err
 	}
-	slog.Info("CA setup successfully completed for %v", profile)
+	slog.Infof("CA setup successfully completed for %v", profile)
 	return nil
 }
 

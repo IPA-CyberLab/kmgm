@@ -105,7 +105,6 @@ func NewApp() *cli.App {
 		var logger *zap.Logger
 		if loggeri, ok := app.Metadata["Logger"]; ok {
 			logger = loggeri.(*zap.Logger)
-			zap.ReplaceGlobals(logger)
 		} else {
 			cfg := zap.NewProductionConfig()
 			cfg.DisableCaller = !c.Bool("log-location")
@@ -143,7 +142,7 @@ func NewApp() *cli.App {
 		}
 
 		var fe frontend.Frontend
-		if configText != "" || c.Bool("non-interactive") || isatty.IsTerminal(os.Stdin.Fd()) {
+		if configText != "" || c.Bool("non-interactive") || !isatty.IsTerminal(os.Stdin.Fd()) {
 			fe = &frontend.NonInteractive{
 				Logger:     logger,
 				ConfigText: configText,
@@ -158,6 +157,7 @@ func NewApp() *cli.App {
 			return err
 		}
 		env.ProfileName = c.String("profile")
+		env.Logger = logger
 
 		action.GlobalEnvironment = env
 		zap.ReplaceGlobals(env.Logger)

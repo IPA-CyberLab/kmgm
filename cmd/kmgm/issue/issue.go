@@ -78,13 +78,16 @@ func PrepareKeyTypePath(env *action.Environment, ktype *wcrypto.KeyType, privPat
 		return err
 	}
 
-	// FIXME[P2]: Prompt key type
-
-	priv, err := wcrypto.GenerateKey(env.Randr, *ktype, "", env.Logger)
-	if err != nil {
-		return err
+	keytypeStr := "any"
+	items := []frontend.ConfigItem{
+		frontend.ConfigItem{
+			Label: "Key type",
+			// Validate: validate.File,
+			Value:   &keytypeStr,
+			Options: []string{"any", "rsa", "ecdsa"},
+		},
 	}
-	if err := storage.WritePrivateKeyFile(*privPath, priv); err != nil {
+	if err := env.Frontend.Configure(items); err != nil {
 		return err
 	}
 

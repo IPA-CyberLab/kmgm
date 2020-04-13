@@ -2,6 +2,7 @@ package frontend
 
 type ConfigItem struct {
 	Label    string
+	Options  []string
 	Validate func(string) error
 	Value    *string
 }
