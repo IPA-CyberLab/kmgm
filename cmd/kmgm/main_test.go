@@ -439,3 +439,53 @@ noDefault: true
 	expectErr(t, err, &issue.UnexpectedKeyTypeErr{})
 	_ = logs
 }
+
+func TestIssue_UseExistingKey(t *testing.T) {
+	basedir, teardown := prepareBasedir(t)
+	t.Cleanup(teardown)
+
+	setupCA(t, basedir)
+
+	privPath := filepath.Join(basedir, "issue.priv.pem")
+	priv, err := wcrypto.GenerateKey(rand.Reader, wcrypto.KeyRSA4096, "", zap.L())
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	if err := storage.WritePrivateKeyFile(privPath, priv); err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	pub, err := wcrypto.ExtractPublicKey(priv)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	certPath := filepath.Join(basedir, "issue.cert.pem")
+	yaml := []byte(fmt.Sprintf(`
+issue:
+  subject:
+    commonName: leaf_CN
+  keyType: any
+  keyUsage:
+    preset: tlsClientServer
+  validity: 30d
+
+certPath: %s
+privateKeyPath: %s
+
+noDefault: true
+`, certPath, privPath))
+
+	logs, err := runKmgm(t, basedir, yaml, []string{"issue"})
+	expectErr(t, err, nil)
+	expectLogMessage(t, logs, "Generating certificate... Done.")
+
+	cert, err := storage.ReadCertificateFile(certPath)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	if err := wcrypto.VerifyPublicKeyMatch(cert.PublicKey, pub); err != nil {
+		t.Errorf("VerifyPublicKey: %v", err)
+	}
+}
