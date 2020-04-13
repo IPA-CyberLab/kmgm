@@ -106,17 +106,6 @@ func (fe Frontend) EditText(beforeEdit string, validator func(string) (string, e
 func (fe Frontend) Configure(items []frontend.ConfigItem) error {
 	for _, i := range items {
 		var err error
-		if len(i.Options) > 0 {
-			s := promptui.Select{
-				Label: i.Label,
-				Items: i.Options,
-			}
-			_, *i.Value, err = s.Run()
-			if err != nil {
-				return fmt.Errorf("select %s failed: %w", i.Label, err)
-			}
-			continue
-		}
 		p := promptui.Prompt{
 			Label:     i.Label,
 			Validate:  i.Validate,

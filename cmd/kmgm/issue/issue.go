@@ -68,6 +68,7 @@ func PrepareKeyTypePath(env *action.Environment, ktype *wcrypto.KeyType, privPat
 		if *ktype != wcrypto.KeyAny && *ktype != extractType {
 			return &UnexpectedKeyTypeErr{Expected: *ktype, Actual: extractType}
 		}
+		*ktype = extractType
 		return nil
 	}
 	if !os.IsNotExist(err) {
@@ -75,19 +76,6 @@ func PrepareKeyTypePath(env *action.Environment, ktype *wcrypto.KeyType, privPat
 	}
 
 	if err := validate.MkdirAndCheckWritable(*privPath); err != nil {
-		return err
-	}
-
-	keytypeStr := "any"
-	items := []frontend.ConfigItem{
-		frontend.ConfigItem{
-			Label: "Key type",
-			// Validate: validate.File,
-			Value:   &keytypeStr,
-			Options: []string{"any", "rsa", "ecdsa"},
-		},
-	}
-	if err := env.Frontend.Configure(items); err != nil {
 		return err
 	}
 
@@ -190,6 +178,7 @@ func PromptCertPath(env *action.Environment, privPath, certPath string) (string,
 	return certPath, nil
 }
 
+// FIXME[P2]: Help msg for keyType
 // FIXME[P2]: Should escape
 const ConfigTemplateText = `
 ---
@@ -271,33 +260,43 @@ func (*UnexpectedKeyTypeErr) Is(target error) bool {
 	return ok
 }
 
+func VerifyKeyType(path string, expected wcrypto.KeyType) error {
+	if expected == wcrypto.KeyAny {
+		return nil
+	}
+
+	priv, err := storage.ReadPrivateKeyFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		// We are good here, since there is no preexisting key file to enforce the key type.
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	pub, err := wcrypto.ExtractPublicKey(priv)
+	if err != nil {
+		return err
+	}
+	ktype, err := wcrypto.KeyTypeOfPub(pub)
+	if err != nil {
+		return err
+	}
+	if ktype != expected {
+		return fmt.Errorf("Existing key %q: %w", path, &UnexpectedKeyTypeErr{Expected: expected, Actual: ktype})
+	}
+	return nil
+}
+
 func (c *Config) Verify() error {
 	// FIXME[P2]: Check CertPath here as well? (currently checked in PromptCertPath)
 
 	if err := c.Issue.Verify(time.Now()); err != nil {
 		return err
 	}
-
-	if c.Issue.KeyType != wcrypto.KeyAny {
-		priv, err := storage.ReadPrivateKeyFile(c.PrivateKeyPath)
-		if errors.Is(err, os.ErrNotExist) {
-			// We are good here, since there is no preexisting key file to enforce the key type.
-		} else if err != nil {
-			return err
-		}
-
-		pub, err := wcrypto.ExtractPublicKey(priv)
-		if err != nil {
-			return err
-		}
-		ktype, err := wcrypto.KeyTypeOfPub(pub)
-		if err != nil {
-			return err
-		}
-		if ktype != c.Issue.KeyType {
-			return fmt.Errorf("Existing key %q: %w", c.PrivateKeyPath, &UnexpectedKeyTypeErr{Expected: c.Issue.KeyType, Actual: ktype})
-		}
+	if err := VerifyKeyType(c.PrivateKeyPath, c.Issue.KeyType); err != nil {
+		return err
 	}
+
 	return nil
 }
 
