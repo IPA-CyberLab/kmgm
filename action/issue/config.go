@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/IPA-CyberLab/kmgm/dname"
-	"github.com/IPA-CyberLab/kmgm/validityperiod"
 	"github.com/IPA-CyberLab/kmgm/keyusage"
 	"github.com/IPA-CyberLab/kmgm/san"
+	"github.com/IPA-CyberLab/kmgm/validityperiod"
 	"github.com/IPA-CyberLab/kmgm/wcrypto"
 )
 
@@ -59,7 +59,21 @@ func ConfigFromCert(cert *x509.Certificate) (*Config, error) {
 	}, nil
 }
 
-// FIXME[P0]: func (a *Config) Equals(b *Config) bool {}
+func (a *Config) CompatibleWith(b *Config) error {
+	if err := a.Subject.CompatibleWith(b.Subject); err != nil {
+		return err
+	}
+	if err := a.Names.CompatibleWith(b.Names); err != nil {
+		return err
+	}
+	if !a.KeyUsage.Equals(b.KeyUsage) {
+		return fmt.Errorf("KeyUsage mismatch")
+	}
+	if a.KeyType != b.KeyType {
+		return fmt.Errorf("KeyType mismatch: %v != %v", a.KeyType, b.KeyType)
+	}
+	return nil
+}
 
 const expireThreshold = 30 * time.Second
 

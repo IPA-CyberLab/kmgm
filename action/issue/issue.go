@@ -15,7 +15,7 @@ import (
 	"github.com/IPA-CyberLab/kmgm/wcrypto"
 )
 
-func createCertificate(env *action.Environment, pub crypto.PublicKey, cfg *Config, cacert *x509.Certificate, capriv crypto.PrivateKey, serial int64) ([]byte, error) {
+func createCertificate(env *action.Environment, now time.Time, pub crypto.PublicKey, cfg *Config, cacert *x509.Certificate, capriv crypto.PrivateKey, serial int64) ([]byte, error) {
 	slog := env.Logger.Sugar()
 
 	start := time.Now()
@@ -63,7 +63,7 @@ func createCertificate(env *action.Environment, pub crypto.PublicKey, cfg *Confi
 		// MaxPathLen:     0,
 		// MaxPathLenZero: true,
 
-		NotAfter:  cfg.Validity.GetNotAfter(start).UTC(),
+		NotAfter:  cfg.Validity.GetNotAfter(now).UTC(),
 		NotBefore: start.Add(-consts.NodesOutOfSyncThreshold).UTC(),
 
 		SerialNumber: new(big.Int).SetInt64(serial),
@@ -85,7 +85,9 @@ func createCertificate(env *action.Environment, pub crypto.PublicKey, cfg *Confi
 
 // FIXME[P2]: make concurrent safe
 func Run(env *action.Environment, pub crypto.PublicKey, cfg *Config) ([]byte, error) {
-	if err := cfg.Names.Verify(); err != nil {
+	now := time.Now()
+
+	if err := cfg.Verify(now); err != nil {
 		return nil, err
 	}
 
@@ -111,7 +113,7 @@ func Run(env *action.Environment, pub crypto.PublicKey, cfg *Config) ([]byte, er
 
 	slog := env.Logger.Sugar()
 
-	if err := wcrypto.VerifyCACertAndKey(capriv, cacert, time.Now()); err != nil {
+	if err := wcrypto.VerifyCACertAndKey(capriv, cacert, now); err != nil {
 		return nil, err
 	}
 
@@ -126,7 +128,7 @@ func Run(env *action.Environment, pub crypto.PublicKey, cfg *Config) ([]byte, er
 		slog.Infof("Allocated sn: %v", serial)
 	}
 
-	certDer, err := createCertificate(env, pub, cfg, cacert, capriv, serial)
+	certDer, err := createCertificate(env, now, pub, cfg, cacert, capriv, serial)
 	if err != nil {
 		return nil, err
 	}

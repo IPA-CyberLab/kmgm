@@ -68,6 +68,16 @@ func (ns Names) Verify() error {
 	return nil
 }
 
+func (a Names) CompatibleWith(b Names) error {
+	as := a.String()
+	bs := b.String()
+
+	if as != bs {
+		fmt.Errorf("%q != %q", as, bs)
+	}
+	return nil
+}
+
 func (ns Names) String() (s string) {
 	s = strings.Join(ns.DNSNames, ",")
 	for _, a := range ns.IPAddrs {
@@ -126,6 +136,14 @@ func Parse(s string) (ns Names, err error) {
 	}
 
 	return
+}
+
+func MustParse(s string) Names {
+	ns, err := Parse(s)
+	if err != nil {
+		panic(err)
+	}
+	return ns
 }
 
 func (ns *Names) UnmarshalYAML(unmarshal func(interface{}) error) error {

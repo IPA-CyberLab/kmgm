@@ -154,21 +154,14 @@ func PromptCertPath(env *action.Environment, privPath, certPath string) (string,
 	if err == nil {
 		// File already exists.
 
-		cert, err := storage.ReadCertificateFile(certPath)
-		if err != nil {
+		if _, err := storage.ReadCertificateFile(certPath); err != nil {
 			return "", err
 		}
-		cfg, err := issue.ConfigFromCert(cert)
-		if err != nil {
-			return "", err
-		}
-		env.Logger.Sugar().Infof("FIXME[P1] %+v", cfg)
-		// FIXME[P1]: extract issuecfg
 
 		return certPath, nil
 	}
 	if !os.IsNotExist(err) {
-		return "", fmt.Errorf("os.Stat(%q): %w", privPath, err)
+		return "", fmt.Errorf("os.Stat(%q): %w", certPath, err)
 	}
 
 	if err := validate.MkdirAndCheckWritable(certPath); err != nil {
@@ -260,31 +253,61 @@ func (*UnexpectedKeyTypeErr) Is(target error) bool {
 	return ok
 }
 
-func VerifyKeyType(path string, expected wcrypto.KeyType) error {
-	if expected == wcrypto.KeyAny {
-		return nil
-	}
-
+func VerifyKeyType(path string, expected wcrypto.KeyType) (crypto.PublicKey, error) {
 	priv, err := storage.ReadPrivateKeyFile(path)
 	if errors.Is(err, os.ErrNotExist) {
 		// We are good here, since there is no preexisting key file to enforce the key type.
-		return nil
+		return nil, nil
 	} else if err != nil {
-		return err
+		return nil, err
 	}
 
 	pub, err := wcrypto.ExtractPublicKey(priv)
 	if err != nil {
-		return err
+		return nil, err
 	}
+
 	ktype, err := wcrypto.KeyTypeOfPub(pub)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if ktype != expected {
-		return fmt.Errorf("Existing key %q: %w", path, &UnexpectedKeyTypeErr{Expected: expected, Actual: ktype})
+
+	if expected != wcrypto.KeyAny && ktype != expected {
+		return nil, fmt.Errorf("Existing key %q: %w", path, &UnexpectedKeyTypeErr{Expected: expected, Actual: ktype})
 	}
-	return nil
+
+	return pub, nil
+}
+
+func (c *Config) verifyExistingCert(pub crypto.PublicKey) error {
+	if _, err := os.Stat(c.CertPath); err == nil {
+		// File already exists.
+
+		cert, err := storage.ReadCertificateFile(c.CertPath)
+		if err != nil {
+			return err
+		}
+
+		certCfg, err := issue.ConfigFromCert(cert)
+		if err != nil {
+			return err
+		}
+
+		if err := c.Issue.CompatibleWith(certCfg); err != nil {
+			return err
+		}
+
+		return nil
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("os.Stat(%q): %w", c.CertPath, err)
+	} else {
+		// File does not exist.
+
+		if err := validate.MkdirAndCheckWritable(c.CertPath); err != nil {
+			return err
+		}
+		return nil
+	}
 }
 
 func (c *Config) Verify() error {
@@ -293,7 +316,11 @@ func (c *Config) Verify() error {
 	if err := c.Issue.Verify(time.Now()); err != nil {
 		return err
 	}
-	if err := VerifyKeyType(c.PrivateKeyPath, c.Issue.KeyType); err != nil {
+	pub, err := VerifyKeyType(c.PrivateKeyPath, c.Issue.KeyType)
+	if err != nil {
+		return err
+	}
+	if err := c.verifyExistingCert(pub); err != nil {
 		return err
 	}
 

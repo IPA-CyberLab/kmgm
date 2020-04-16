@@ -2,6 +2,7 @@ package main_test
 
 import (
 	"bytes"
+	"crypto"
 	"crypto/rand"
 	"crypto/x509/pkix"
 	"errors"
@@ -18,6 +19,7 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 
 	"github.com/IPA-CyberLab/kmgm/action"
+	issuea "github.com/IPA-CyberLab/kmgm/action/issue"
 	setupa "github.com/IPA-CyberLab/kmgm/action/setup"
 	main "github.com/IPA-CyberLab/kmgm/cmd/kmgm"
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/issue"
@@ -25,7 +27,10 @@ import (
 	"github.com/IPA-CyberLab/kmgm/dname"
 	"github.com/IPA-CyberLab/kmgm/frontend"
 	"github.com/IPA-CyberLab/kmgm/ipapi"
+	"github.com/IPA-CyberLab/kmgm/keyusage"
+	"github.com/IPA-CyberLab/kmgm/san"
 	"github.com/IPA-CyberLab/kmgm/storage"
+	"github.com/IPA-CyberLab/kmgm/validityperiod"
 	"github.com/IPA-CyberLab/kmgm/wcrypto"
 )
 
@@ -301,9 +306,7 @@ func TestIssue_NoCA(t *testing.T) {
 	_ = logs //expectLogMessage(t, logs, "")
 }
 
-func setupCA(t *testing.T, basedir string) {
-	t.Helper()
-
+func testEnv(t *testing.T, basedir string) *action.Environment {
 	stor, err := storage.New(basedir)
 	if err != nil {
 		t.Fatalf("storage.New: %v", err)
@@ -316,9 +319,17 @@ func setupCA(t *testing.T, basedir string) {
 	env, err := action.NewEnvironment(fe, stor)
 	env.Frontend = &frontend.NonInteractive{Logger: zap.L()}
 
+	return env
+}
+
+func setupCA(t *testing.T, basedir string) {
+	t.Helper()
+
+	env := testEnv(t, basedir)
+
 	cfg := &setupa.Config{
 		Subject: &dname.Config{
-			CommonName:         "test_CA_",
+			CommonName:         "test_CA_CN",
 			Organization:       "test_CA_Org",
 			OrganizationalUnit: "test_CA_OU",
 			Country:            "JP",
@@ -332,9 +343,6 @@ func setupCA(t *testing.T, basedir string) {
 	cfg.Validity.UnmarshalFlag("30d")
 	if err := cfg.Verify(time.Now()); err != nil {
 		t.Fatalf("cfg.Verify: %v", err)
-	}
-	if err != nil {
-		t.Fatalf("%v", err)
 	}
 	if err := setupa.Run(env, cfg); err != nil {
 		t.Fatalf("setup.Run: %v", err)
@@ -465,7 +473,7 @@ func TestIssue_UseExistingKey(t *testing.T) {
 issue:
   subject:
     commonName: leaf_CN
-  keyType: any
+  keyType: rsa
   keyUsage:
     preset: tlsClientServer
   validity: 30d
@@ -488,4 +496,119 @@ noDefault: true
 	if err := wcrypto.VerifyPublicKeyMatch(cert.PublicKey, pub); err != nil {
 		t.Errorf("VerifyPublicKey: %v", err)
 	}
+}
+
+func setupCert(t *testing.T, basedir string, pub crypto.PublicKey) string {
+	t.Helper()
+
+	env := testEnv(t, basedir)
+
+	cfg := &issuea.Config{
+		Subject: &dname.Config{
+			CommonName:         "test_leaf_CN",
+			Organization:       "test_leaf_Org",
+			OrganizationalUnit: "test_leaf_OU",
+			Country:            "DE",
+			Locality:           "test_leaf_L",
+			Province:           "test_leaf_P",
+			StreetAddress:      "test_leaf_SA",
+			PostalCode:         "test_leaf_PC",
+		},
+		Names:    san.MustParse("san.example,192.168.0.10"),
+		KeyUsage: keyusage.KeyUsageTLSClientServer.Clone(),
+		Validity: validityperiod.ValidityPeriod{Days: 12},
+		KeyType:  wcrypto.KeyRSA4096,
+	}
+
+	certDer, err := issuea.Run(env, pub, cfg)
+	if err != nil {
+		t.Fatalf("issue.Run: %v", err)
+	}
+
+	certPath := filepath.Join(basedir, "issue.cert.pem")
+	if err := storage.WriteCertificateDerFile(certPath, certDer); err != nil {
+		t.Fatalf("WriteCertificateDerFile: %v", err)
+	}
+
+	return certPath
+}
+
+func TestIssue_RenewCert_NoDefault(t *testing.T) {
+	basedir, teardown := prepareBasedir(t)
+	t.Cleanup(teardown)
+
+	setupCA(t, basedir)
+
+	privPath := filepath.Join(basedir, "issue.priv.pem")
+	priv, err := wcrypto.GenerateKey(rand.Reader, wcrypto.KeyRSA4096, "", zap.L())
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	if err := storage.WritePrivateKeyFile(privPath, priv); err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	pub, err := wcrypto.ExtractPublicKey(priv)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	certPath := setupCert(t, basedir, pub)
+
+	t.Run("SubjectMismatch", func(t *testing.T) {
+		yaml := []byte(fmt.Sprintf(`
+      issue:
+        subject:
+          commonName: different_commonName
+        keyType: rsa
+        keyUsage:
+          preset: tlsClientServer
+        validity: 30d
+
+      certPath: %s
+      privateKeyPath: %s
+
+      noDefault: true
+      `, certPath, privPath))
+
+		logs, err := runKmgm(t, basedir, yaml, []string{"issue"})
+		expectErr(t, err, nil)
+		_ = logs
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		yaml := []byte(fmt.Sprintf(`
+      issue:
+        subject:
+          commonName: test_leaf_CN
+          organization: test_leaf_Org
+          organizationalUnit: test_leaf_OU
+          country: DE
+          locality: test_leaf_L
+          province: test_leaf_P
+          streetAddress: test_leaf_SA
+          postalCode: test_leaf_PC
+        keyType: rsa
+        keyUsage:
+          preset: tlsClientServer
+        validity: 30d
+
+      certPath: %s
+      privateKeyPath: %s
+
+      noDefault: true
+      `, certPath, privPath))
+
+		logs, err := runKmgm(t, basedir, yaml, []string{"issue"})
+		expectErr(t, err, nil)
+		expectLogMessage(t, logs, "Generating certificate... Done.")
+
+		cert, err := storage.ReadCertificateFile(certPath)
+		if err != nil {
+			t.Fatalf("%v", err)
+		}
+
+		if err := wcrypto.VerifyPublicKeyMatch(cert.PublicKey, pub); err != nil {
+			t.Errorf("VerifyPublicKey: %v", err)
+		}
+	})
 }

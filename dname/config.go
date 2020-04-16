@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"github.com/IPA-CyberLab/kmgm/domainname"
-	"github.com/IPA-CyberLab/kmgm/frontend"
 	"github.com/IPA-CyberLab/kmgm/frontend/validate"
 	"github.com/IPA-CyberLab/kmgm/ipapi"
 	"go.uber.org/multierr"
@@ -180,47 +179,30 @@ func (cfg *Config) IsEmpty() bool {
 	return true
 }
 
-func (cfg *Config) ConfigItems() []frontend.ConfigItem {
-	return []frontend.ConfigItem{
-		frontend.ConfigItem{
-			Label:    "CommonName",
-			Validate: validate.PKIXElement(64),
-			Value:    &cfg.CommonName,
-		},
-		frontend.ConfigItem{
-			Label:    "Organization",
-			Validate: validate.PKIXElement(64),
-			Value:    &cfg.Organization,
-		},
-		frontend.ConfigItem{
-			Label:    "OrganizationalUnit",
-			Validate: validate.PKIXElement(64),
-			Value:    &cfg.OrganizationalUnit,
-		},
-		frontend.ConfigItem{
-			Label:    "Country",
-			Validate: validate.PKIXElement(2),
-			Value:    &cfg.Country,
-		},
-		frontend.ConfigItem{
-			Label:    "Locality",
-			Validate: validate.PKIXElement(128),
-			Value:    &cfg.Locality,
-		},
-		frontend.ConfigItem{
-			Label:    "Province",
-			Validate: validate.PKIXElement(128),
-			Value:    &cfg.Province,
-		},
-		frontend.ConfigItem{
-			Label:    "StreetAddress",
-			Validate: validate.PKIXElement(128),
-			Value:    &cfg.StreetAddress,
-		},
-		frontend.ConfigItem{
-			Label:    "PostalCode",
-			Validate: validate.PKIXElement(40),
-			Value:    &cfg.PostalCode,
-		},
+func (a *Config) CompatibleWith(b *Config) error {
+	if a.CommonName != b.CommonName {
+		return fmt.Errorf("CommonName %q != %q", a.CommonName, b.CommonName)
 	}
+	if a.Organization != b.Organization {
+		return fmt.Errorf("Organization %q != %q", a.Organization, b.Organization)
+	}
+	if a.OrganizationalUnit != b.OrganizationalUnit {
+		return fmt.Errorf("OrganizationalUnit %q != %q", a.OrganizationalUnit, b.OrganizationalUnit)
+	}
+	if a.Country != b.Country {
+		return fmt.Errorf("Country %q != %q", a.Country, b.Country)
+	}
+	if a.Locality != b.Locality {
+		return fmt.Errorf("Locality %q != %q", a.Locality, b.Locality)
+	}
+	if a.Province != b.Province {
+		return fmt.Errorf("Province %q != %q", a.Province, b.Province)
+	}
+	if a.StreetAddress != b.StreetAddress {
+		return fmt.Errorf("StreetAddress %q != %q", a.StreetAddress, b.StreetAddress)
+	}
+	if a.PostalCode != b.PostalCode {
+		return fmt.Errorf("PostalCode %q != %q", a.PostalCode, b.PostalCode)
+	}
+	return nil
 }
