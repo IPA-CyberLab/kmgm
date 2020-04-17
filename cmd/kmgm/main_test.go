@@ -571,7 +571,35 @@ func TestIssue_RenewCert_NoDefault(t *testing.T) {
       `, certPath, privPath))
 
 		logs, err := runKmgm(t, basedir, yaml, []string{"issue"})
-		expectErr(t, err, nil)
+		expectErr(t, err, issue.IncompatibleCertErr{})
+		_ = logs
+	})
+
+	t.Run("KeyUsageMismatch", func(t *testing.T) {
+		yaml := []byte(fmt.Sprintf(`
+      issue:
+        subject:
+          commonName: test_leaf_CN
+          organization: test_leaf_Org
+          organizationalUnit: test_leaf_OU
+          country: DE
+          locality: test_leaf_L
+          province: test_leaf_P
+          streetAddress: test_leaf_SA
+          postalCode: test_leaf_PC
+        keyType: rsa
+        keyUsage:
+          preset: tlsClient
+        validity: 30d
+
+      certPath: %s
+      privateKeyPath: %s
+
+      noDefault: true
+      `, certPath, privPath))
+
+		logs, err := runKmgm(t, basedir, yaml, []string{"issue"})
+		expectErr(t, err, issue.IncompatibleCertErr{})
 		_ = logs
 	})
 

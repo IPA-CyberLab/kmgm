@@ -66,7 +66,7 @@ func PrepareKeyTypePath(env *action.Environment, ktype *wcrypto.KeyType, privPat
 		slog.Infof("Successfully read private key of type %v", extractType)
 
 		if *ktype != wcrypto.KeyAny && *ktype != extractType {
-			return &UnexpectedKeyTypeErr{Expected: *ktype, Actual: extractType}
+			return UnexpectedKeyTypeErr{Expected: *ktype, Actual: extractType}
 		}
 		*ktype = extractType
 		return nil
@@ -106,7 +106,7 @@ func EnsurePrivateKey(env *action.Environment, ktype wcrypto.KeyType, privPath s
 		slog.Infof("Successfully read private key of type %v", extractType)
 
 		if ktype != wcrypto.KeyAny && ktype != extractType {
-			return nil, &UnexpectedKeyTypeErr{Expected: ktype, Actual: extractType}
+			return nil, UnexpectedKeyTypeErr{Expected: ktype, Actual: extractType}
 		}
 		return priv, nil
 	}
@@ -244,12 +244,12 @@ type UnexpectedKeyTypeErr struct {
 	Actual   wcrypto.KeyType
 }
 
-func (e *UnexpectedKeyTypeErr) Error() string {
+func (e UnexpectedKeyTypeErr) Error() string {
 	return fmt.Sprintf("Expected key type of %s but specified key %s", e.Expected, e.Actual)
 }
 
-func (*UnexpectedKeyTypeErr) Is(target error) bool {
-	_, ok := target.(*UnexpectedKeyTypeErr)
+func (UnexpectedKeyTypeErr) Is(target error) bool {
+	_, ok := target.(UnexpectedKeyTypeErr)
 	return ok
 }
 
@@ -273,10 +273,27 @@ func VerifyKeyType(path string, expected wcrypto.KeyType) (crypto.PublicKey, err
 	}
 
 	if expected != wcrypto.KeyAny && ktype != expected {
-		return nil, fmt.Errorf("Existing key %q: %w", path, &UnexpectedKeyTypeErr{Expected: expected, Actual: ktype})
+		return nil, fmt.Errorf("Existing key %q: %w", path, UnexpectedKeyTypeErr{Expected: expected, Actual: ktype})
 	}
 
 	return pub, nil
+}
+
+type IncompatibleCertErr struct {
+	Wrap error
+}
+
+func (e IncompatibleCertErr) Error() string {
+	return fmt.Sprintf("Certificate renewal requested, but the cert was issued with a different config. Please specify a matching config or different certPath: %v", e.Wrap)
+}
+
+func (IncompatibleCertErr) Is(target error) bool {
+	_, ok := target.(IncompatibleCertErr)
+	return ok
+}
+
+func (e IncompatibleCertErr) Unwrap() error {
+	return e.Wrap
 }
 
 func (c *Config) verifyExistingCert(pub crypto.PublicKey) error {
@@ -294,7 +311,7 @@ func (c *Config) verifyExistingCert(pub crypto.PublicKey) error {
 		}
 
 		if err := c.Issue.CompatibleWith(certCfg); err != nil {
-			return err
+			return IncompatibleCertErr{Wrap: err}
 		}
 
 		return nil

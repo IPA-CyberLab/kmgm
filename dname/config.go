@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"os"
 
+	"go.uber.org/multierr"
+
 	"github.com/IPA-CyberLab/kmgm/domainname"
 	"github.com/IPA-CyberLab/kmgm/frontend/validate"
 	"github.com/IPA-CyberLab/kmgm/ipapi"
-	"go.uber.org/multierr"
 )
 
 type Config struct {
@@ -180,29 +181,30 @@ func (cfg *Config) IsEmpty() bool {
 }
 
 func (a *Config) CompatibleWith(b *Config) error {
+	var merr error
 	if a.CommonName != b.CommonName {
-		return fmt.Errorf("CommonName %q != %q", a.CommonName, b.CommonName)
+		merr = multierr.Append(merr, fmt.Errorf("CommonName %q != %q", a.CommonName, b.CommonName))
 	}
 	if a.Organization != b.Organization {
-		return fmt.Errorf("Organization %q != %q", a.Organization, b.Organization)
+		merr = multierr.Append(merr, fmt.Errorf("Organization %q != %q", a.Organization, b.Organization))
 	}
 	if a.OrganizationalUnit != b.OrganizationalUnit {
-		return fmt.Errorf("OrganizationalUnit %q != %q", a.OrganizationalUnit, b.OrganizationalUnit)
+		merr = multierr.Append(merr, fmt.Errorf("OrganizationalUnit %q != %q", a.OrganizationalUnit, b.OrganizationalUnit))
 	}
 	if a.Country != b.Country {
-		return fmt.Errorf("Country %q != %q", a.Country, b.Country)
+		merr = multierr.Append(merr, fmt.Errorf("Country %q != %q", a.Country, b.Country))
 	}
 	if a.Locality != b.Locality {
-		return fmt.Errorf("Locality %q != %q", a.Locality, b.Locality)
+		merr = multierr.Append(merr, fmt.Errorf("Locality %q != %q", a.Locality, b.Locality))
 	}
 	if a.Province != b.Province {
-		return fmt.Errorf("Province %q != %q", a.Province, b.Province)
+		merr = multierr.Append(merr, fmt.Errorf("Province %q != %q", a.Province, b.Province))
 	}
 	if a.StreetAddress != b.StreetAddress {
-		return fmt.Errorf("StreetAddress %q != %q", a.StreetAddress, b.StreetAddress)
+		merr = multierr.Append(merr, fmt.Errorf("StreetAddress %q != %q", a.StreetAddress, b.StreetAddress))
 	}
 	if a.PostalCode != b.PostalCode {
-		return fmt.Errorf("PostalCode %q != %q", a.PostalCode, b.PostalCode)
+		merr = multierr.Append(merr, fmt.Errorf("PostalCode %q != %q", a.PostalCode, b.PostalCode))
 	}
-	return nil
+	return merr
 }

@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"go.uber.org/multierr"
+
 	"github.com/IPA-CyberLab/kmgm/dname"
 	"github.com/IPA-CyberLab/kmgm/keyusage"
 	"github.com/IPA-CyberLab/kmgm/san"
@@ -80,18 +82,19 @@ const expireThreshold = 30 * time.Second
 var ErrValidityPeriodExpired = errors.New("Declining to issue certificate which expires within 30 seconds.")
 
 func (cfg *Config) Verify(now time.Time) error {
+	var merr error
 	if err := cfg.Subject.Verify(); err != nil {
-		return fmt.Errorf("Subject.%w", err)
+		merr = fmt.Errorf("Subject.%w", err)
 	}
 	if err := cfg.Names.Verify(); err != nil {
-		return fmt.Errorf("Names.%w", err)
+		merr = multierr.Append(merr, fmt.Errorf("Names.%w", err))
 	}
 	if err := cfg.KeyUsage.Verify(); err != nil {
-		return fmt.Errorf("KeyUsage.%w", err)
+		merr = multierr.Append(merr, fmt.Errorf("KeyUsage.%w", err))
 	}
 	if cfg.Validity.GetNotAfter(now).Before(now.Add(expireThreshold)) {
-		return ErrValidityPeriodExpired
+		merr = multierr.Append(merr, ErrValidityPeriodExpired)
 	}
 
-	return nil
+	return merr
 }
