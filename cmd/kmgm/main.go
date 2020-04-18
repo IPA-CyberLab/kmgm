@@ -158,6 +158,9 @@ func NewApp() *cli.App {
 		}
 		env.ProfileName = c.String("profile")
 		env.Logger = logger
+		if nowimpl, ok := app.Metadata["NowImpl"]; ok {
+			env.NowImpl = nowimpl.(func() time.Time)
+		}
 
 		action.GlobalEnvironment = env
 		zap.ReplaceGlobals(env.Logger)
