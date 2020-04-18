@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/urfave/cli/v2"
 
@@ -327,10 +326,8 @@ func (c *Config) verifyExistingCert(pub crypto.PublicKey) error {
 	}
 }
 
-func (c *Config) Verify() error {
-	// FIXME[P2]: Check CertPath here as well? (currently checked in PromptCertPath)
-
-	if err := c.Issue.Verify(time.Now()); err != nil {
+func (c *Config) Verify(env *action.Environment) error {
+	if err := c.Issue.Verify(env.NowImpl()); err != nil {
 		return err
 	}
 	pub, err := VerifyKeyType(c.PrivateKeyPath, c.Issue.KeyType)
@@ -355,6 +352,7 @@ var Command = &cli.Command{
 	),
 	Action: func(c *cli.Context) error {
 		env := action.GlobalEnvironment
+		now := env.NowImpl()
 		slog := env.Logger.Sugar()
 
 		profile, err := env.Profile()
@@ -368,7 +366,7 @@ var Command = &cli.Command{
 
 			var caSubject *dname.Config
 			// Inherit CA subject iff CA is setup.
-			if st := profile.Status(); st == nil {
+			if st := profile.Status(now); st == nil {
 				var err error
 				caSubject, err = profile.ReadCASubject()
 				if err != nil {
@@ -409,7 +407,13 @@ var Command = &cli.Command{
 		}
 
 		if err := frontend.EditStructWithVerifier(
-			env.Frontend, ConfigTemplateText, cfg, frontend.CallVerifyMethod); err != nil {
+			env.Frontend, ConfigTemplateText, cfg, func(cfgI interface{}) error {
+				cfg := cfgI.(*Config)
+				if err := cfg.Verify(env); err != nil {
+					return err
+				}
+				return nil
+			}); err != nil {
 			return err
 		}
 		if err := structflags.PopulateStructFromCliContext(cfg, c); err != nil {

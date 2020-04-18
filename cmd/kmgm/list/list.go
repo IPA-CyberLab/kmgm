@@ -37,13 +37,15 @@ func certInfo(pem []byte) string {
 }
 
 func LsProfile(env *action.Environment) error {
+	now := env.NowImpl()
+
 	ps, err := env.Storage.Profiles()
 	if err != nil {
 		return fmt.Errorf("Failed to list profiles: %w", err)
 	}
 
 	for _, p := range ps {
-		fmt.Printf("%s %s\n", p.Name(), p.Status())
+		fmt.Printf("%s %s\n", p.Name(), p.Status(now))
 	}
 
 	return nil
@@ -78,7 +80,8 @@ var Command = &cli.Command{
 			return err
 		}
 
-		if st := profile.Status(); st != nil {
+		now := env.NowImpl()
+		if st := profile.Status(now); st != nil {
 			if st.Code == storage.Expired {
 				slog.Warnf("Expired %s")
 			} else {

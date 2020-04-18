@@ -170,7 +170,7 @@ func (s *CAStatus) Unwrap() error {
 	return s.UnderlyingErr
 }
 
-func (s *Profile) Status() *CAStatus {
+func (s *Profile) Status(now time.Time) *CAStatus {
 	paths := []string{
 		s.CAPrivateKeyPath(),
 		s.CACertPath(),
@@ -204,7 +204,7 @@ func (s *Profile) Status() *CAStatus {
 	}
 	// FIXME[P2]: check issuedb json?
 
-	if err := wcrypto.VerifyCACertAndKey(capriv, cacert, time.Now()); err != nil {
+	if err := wcrypto.VerifyCACertAndKey(capriv, cacert, now); err != nil {
 		// FIXME[P2]: There could be other failure reasons as well
 		return &CAStatus{s, Expired, err}
 	}

@@ -2,7 +2,6 @@ package setup
 
 import (
 	"errors"
-	"time"
 
 	"github.com/urfave/cli/v2"
 
@@ -20,8 +19,8 @@ type Config struct {
 	XXX_NoDefault bool `yaml:"noDefault"`
 }
 
-func (c *Config) Verify() error {
-	if err := c.Setup.Verify(time.Now()); err != nil {
+func (c *Config) Verify(env *action.Environment) error {
+	if err := c.Setup.Verify(env.NowImpl()); err != nil {
 		return err
 	}
 
@@ -52,7 +51,8 @@ var ErrCantRunInteractiveCaSetup = errors.New("EnsureCA: Could not resort to int
 func EnsureCA(env *action.Environment, cfg *Config, profile *storage.Profile, isSetupCommand bool) error {
 	slog := env.Logger.Sugar()
 
-	st := profile.Status()
+	now := env.NowImpl()
+	st := profile.Status(now)
 	if st == nil {
 		slog.Infof("%v already has a CA setup.", profile)
 		return nil
@@ -76,7 +76,13 @@ func EnsureCA(env *action.Environment, cfg *Config, profile *storage.Profile, is
 
 	slog.Infof("Starting CA setup for %v.", profile)
 	if err := frontend.EditStructWithVerifier(
-		env.Frontend, configTemplateText, cfg, frontend.CallVerifyMethod); err != nil {
+		env.Frontend, configTemplateText, cfg, func(cfgI interface{}) error {
+			cfg := cfgI.(*Config)
+			if err := cfg.Verify(env); err != nil {
+				return err
+			}
+			return nil
+		}); err != nil {
 		return err
 	}
 

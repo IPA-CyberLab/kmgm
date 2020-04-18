@@ -64,7 +64,7 @@ func createCertificate(env *action.Environment, now time.Time, pub crypto.Public
 		// MaxPathLenZero: true,
 
 		NotAfter:  cfg.Validity.GetNotAfter(now).UTC(),
-		NotBefore: start.Add(-consts.NodesOutOfSyncThreshold).UTC(),
+		NotBefore: now.Add(-consts.NodesOutOfSyncThreshold).UTC(),
 
 		SerialNumber: new(big.Int).SetInt64(serial),
 
@@ -85,7 +85,7 @@ func createCertificate(env *action.Environment, now time.Time, pub crypto.Public
 
 // FIXME[P2]: make concurrent safe
 func Run(env *action.Environment, pub crypto.PublicKey, cfg *Config) ([]byte, error) {
-	now := time.Now()
+	now := env.NowImpl()
 
 	if err := cfg.Verify(now); err != nil {
 		return nil, err

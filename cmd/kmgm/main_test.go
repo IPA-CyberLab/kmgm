@@ -444,7 +444,7 @@ noDefault: true
 `, certPath, privPath))
 
 	logs, err := runKmgm(t, basedir, yaml, []string{"issue"})
-	expectErr(t, err, &issue.UnexpectedKeyTypeErr{})
+	expectErr(t, err, issue.UnexpectedKeyTypeErr{})
 	_ = logs
 }
 

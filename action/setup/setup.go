@@ -35,6 +35,7 @@ func createCertificate(env *action.Environment, cfg *Config, priv crypto.Private
 		return nil, err
 	}
 
+	now := env.NowImpl()
 	t := &x509.Certificate{
 		// AuthorityKeyId meaningless for self-signed
 		BasicConstraintsValid: true,
@@ -75,8 +76,8 @@ func createCertificate(env *action.Environment, cfg *Config, priv crypto.Private
 		MaxPathLen:     0,
 		MaxPathLenZero: true,
 
-		NotAfter:  cfg.Validity.GetNotAfter(start).UTC(),
-		NotBefore: start.Add(-consts.NodesOutOfSyncThreshold).UTC(),
+		NotAfter:  cfg.Validity.GetNotAfter(now).UTC(),
+		NotBefore: now.Add(-consts.NodesOutOfSyncThreshold).UTC(),
 
 		// FIXME[P2]: https://crypto.stackexchange.com/questions/257/unpredictability-of-x-509-serial-numbers
 		SerialNumber: new(big.Int).SetInt64(1),

@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"time"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -24,6 +25,7 @@ type Environment struct {
 	Randr    io.Reader
 	Frontend frontend.Frontend
 	Logger   *zap.Logger
+	NowImpl  func() time.Time
 
 	ProfileName string
 
@@ -39,6 +41,7 @@ func NewEnvironment(fe frontend.Frontend, stor *storage.Storage) (*Environment, 
 		Randr:    rand.Reader,
 		Frontend: fe,
 		Logger:   l,
+		NowImpl:  time.Now,
 
 		ProfileName: storage.DefaultProfileName,
 	}
@@ -51,6 +54,7 @@ func (env *Environment) Clone() *Environment {
 		Randr:    env.Randr,
 		Frontend: env.Frontend,
 		Logger:   env.Logger,
+		NowImpl:  env.NowImpl,
 
 		ProfileName: env.ProfileName,
 

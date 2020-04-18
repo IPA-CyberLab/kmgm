@@ -23,7 +23,7 @@ func Ensure(env *action.Environment) (*storage.Profile, error) {
 		return nil, err
 	}
 
-	if st := profile.Status(); st != nil {
+	if st := profile.Status(env.NowImpl()); st != nil {
 		if st.Code != storage.NotCA {
 			return nil, st
 		}
@@ -51,7 +51,7 @@ func Ensure(env *action.Environment) (*storage.Profile, error) {
 			return nil, fmt.Errorf("Failed to setup serverauth CA: %v", err)
 		}
 
-		if st := profile.Status(); st != nil {
+		if st := profile.Status(env.NowImpl()); st != nil {
 			return nil, err
 		}
 	}
