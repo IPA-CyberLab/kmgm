@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/urfave/cli/v2"
 
@@ -46,7 +47,7 @@ func PrepareKeyTypePath(env *action.Environment, ktype *wcrypto.KeyType, privPat
 
 	_, err = os.Stat(*privPath)
 	if err == nil {
-		slog.Infof("Found an existing key file %q", privPath)
+		slog.Infof("Found an existing key file: %s", *privPath)
 
 		priv, err := storage.ReadPrivateKeyFile(*privPath)
 		if err != nil {
@@ -234,6 +235,8 @@ type Config struct {
 
 	Issue *issue.Config `yaml:"issue" flags:""`
 
+	RenewBefore time.Duration `yaml:"renewBefore" flags:"renew-before,when specified&comma; renew only if the certificate expires within specified threshold"`
+
 	// This is here to avoid UnmarshalStrict throw error when noDefault was specified for ShouldLoadDefaults().
 	XXX_NoDefault bool `yaml:"noDefault"`
 }
@@ -295,7 +298,9 @@ func (e IncompatibleCertErr) Unwrap() error {
 	return e.Wrap
 }
 
-func (c *Config) verifyExistingCert(pub crypto.PublicKey) error {
+func (c *Config) verifyExistingCert(env *action.Environment, pub crypto.PublicKey) error {
+	s := env.Logger.Sugar()
+
 	if _, err := os.Stat(c.CertPath); err == nil {
 		// File already exists.
 
@@ -303,6 +308,7 @@ func (c *Config) verifyExistingCert(pub crypto.PublicKey) error {
 		if err != nil {
 			return err
 		}
+		s.Infof("Successfully read existing cert: %s", c.CertPath)
 
 		certCfg, err := issue.ConfigFromCert(cert)
 		if err != nil {
@@ -312,6 +318,10 @@ func (c *Config) verifyExistingCert(pub crypto.PublicKey) error {
 		if err := c.Issue.CompatibleWith(certCfg); err != nil {
 			return IncompatibleCertErr{Wrap: err}
 		}
+
+		now := env.NowImpl()
+		validLeft := cert.NotAfter.Sub(now)
+		s.Infof("Existing cert valid until %s. %v left.", cert.NotAfter.Format(time.UnixDate), validLeft)
 
 		return nil
 	} else if !os.IsNotExist(err) {
@@ -334,7 +344,7 @@ func (c *Config) Verify(env *action.Environment) error {
 	if err != nil {
 		return err
 	}
-	if err := c.verifyExistingCert(pub); err != nil {
+	if err := c.verifyExistingCert(env, pub); err != nil {
 		return err
 	}
 

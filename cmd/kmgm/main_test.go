@@ -511,7 +511,7 @@ noDefault: true
 
 // FIXME[P2]: test expired ca
 
-func setupCert(t *testing.T, basedir string, pub crypto.PublicKey) string {
+func setupCertAtPath(t *testing.T, basedir string, pub crypto.PublicKey, certPath string) {
 	t.Helper()
 
 	mockNow := time.Date(2020, time.February, 1, 0, 0, 0, 0, time.UTC)
@@ -539,11 +539,16 @@ func setupCert(t *testing.T, basedir string, pub crypto.PublicKey) string {
 		t.Fatalf("issue.Run: %v", err)
 	}
 
-	certPath := filepath.Join(basedir, "issue.cert.pem")
 	if err := storage.WriteCertificateDerFile(certPath, certDer); err != nil {
 		t.Fatalf("WriteCertificateDerFile: %v", err)
 	}
+}
 
+func setupCert(t *testing.T, basedir string, pub crypto.PublicKey) string {
+	t.Helper()
+
+	certPath := filepath.Join(basedir, "issue.cert.pem")
+	setupCertAtPath(t, basedir, pub, certPath)
 	return certPath
 }
 
@@ -615,6 +620,40 @@ func TestIssue_RenewCert_NoDefault(t *testing.T) {
 		logs, err := runKmgm(t, basedir, yaml, []string{"issue"}, nowDefault)
 		expectErr(t, err, issue.IncompatibleCertErr{})
 		_ = logs
+	})
+
+	// FIXME[P2]: Wrong key (priv.pub doesn't match cert pub)
+
+	t.Run("RenewBefore_NotYet", func(t *testing.T) {
+		certPath := filepath.Join(basedir, "renewBefore.cert.pem")
+
+		yaml := []byte(fmt.Sprintf(`
+      issue:
+        subject:
+          commonName: test_leaf_CN
+          organization: test_leaf_Org
+          organizationalUnit: test_leaf_OU
+          country: DE
+          locality: test_leaf_L
+          province: test_leaf_P
+          streetAddress: test_leaf_SA
+          postalCode: test_leaf_PC
+        keyType: rsa
+        keyUsage:
+          preset: tlsClient
+        validity: 30d
+
+      certPath: %s
+      privateKeyPath: %s
+      renewBefore: 10d
+
+      noDefault: true
+      `, certPath, privPath))
+
+		logs, err := runKmgm(t, basedir, yaml, []string{"issue"}, nowDefault)
+		expectErr(t, err, issue.IncompatibleCertErr{})
+		_ = logs
+		t.Fail()
 	})
 
 	t.Run("Success", func(t *testing.T) {

@@ -20,7 +20,7 @@ type Config struct {
 	Names    san.Names                     `yaml:"subjectAltNames" flags:"subject-alt-name,set cert subjectAltNames,san"`
 	KeyUsage keyusage.KeyUsage             `yaml:"keyUsage" flags:"key-usage,what the key/cert is used for (tlsServer&comma; tlsClient&comma; tlsClientServer),ku"`
 	Validity validityperiod.ValidityPeriod `yaml:"validity" flags:"validity,time duration/timestamp where the cert is valid to (examples: 30d&comma; 1y&comma; 20220530)"`
-	KeyType  wcrypto.KeyType               `yaml:"keyType" flags:"key-type,private key type (rsa&comma; rcdsa),t"`
+	KeyType  wcrypto.KeyType               `yaml:"keyType" flags:"key-type,private key type (rsa&comma; ecdsa),t"`
 
 	// Don't create issuedb entry.
 	NoIssueDBEntry bool
