@@ -10,12 +10,13 @@ import (
 
 	"github.com/urfave/cli/v2"
 
-	action "github.com/IPA-CyberLab/kmgm/action"
+	"github.com/IPA-CyberLab/kmgm/action"
 	"github.com/IPA-CyberLab/kmgm/action/issue"
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/setup"
 	"github.com/IPA-CyberLab/kmgm/dname"
 	"github.com/IPA-CyberLab/kmgm/frontend"
 	"github.com/IPA-CyberLab/kmgm/frontend/validate"
+	"github.com/IPA-CyberLab/kmgm/period"
 	"github.com/IPA-CyberLab/kmgm/storage"
 	"github.com/IPA-CyberLab/kmgm/structflags"
 	"github.com/IPA-CyberLab/kmgm/wcrypto"
@@ -235,7 +236,7 @@ type Config struct {
 
 	Issue *issue.Config `yaml:"issue" flags:""`
 
-	RenewBefore time.Duration `yaml:"renewBefore" flags:"renew-before,when specified&comma; renew only if the certificate expires within specified threshold"`
+	RenewBefore period.Days `yaml:"renewBefore" flags:"renew-before,when specified&comma; renew only if the certificate expires within specified threshold"`
 
 	// This is here to avoid UnmarshalStrict throw error when noDefault was specified for ShouldLoadDefaults().
 	XXX_NoDefault bool `yaml:"noDefault"`
@@ -298,6 +299,21 @@ func (e IncompatibleCertErr) Unwrap() error {
 	return e.Wrap
 }
 
+type CertStillValidErr struct {
+	ValidLeft   time.Duration
+	RenewBefore period.Days
+}
+
+func (e CertStillValidErr) Error() string {
+	return fmt.Sprintf("Existing cert valid for %s, which is more than renewBefore %v (%v)",
+		e.ValidLeft, e.RenewBefore, time.Duration(e.RenewBefore)*24*time.Hour)
+}
+
+func (CertStillValidErr) Is(target error) bool {
+	_, ok := target.(CertStillValidErr)
+	return ok
+}
+
 func (c *Config) verifyExistingCert(env *action.Environment, pub crypto.PublicKey) error {
 	s := env.Logger.Sugar()
 
@@ -321,7 +337,13 @@ func (c *Config) verifyExistingCert(env *action.Environment, pub crypto.PublicKe
 
 		now := env.NowImpl()
 		validLeft := cert.NotAfter.Sub(now)
-		s.Infof("Existing cert valid until %s. %v left.", cert.NotAfter.Format(time.UnixDate), validLeft)
+		s.Infof("Existing cert valid until %s.", cert.NotAfter.Format(time.UnixDate))
+
+		d := time.Duration(c.RenewBefore) * 24 * time.Hour
+		if d != 0 && validLeft > d {
+			return CertStillValidErr{ValidLeft: validLeft, RenewBefore: c.RenewBefore}
+		}
+		s.Infof("Existing cert valid for %s, which is less than renewBefore %v (%v)", validLeft, c.RenewBefore, d)
 
 		return nil
 	} else if !os.IsNotExist(err) {

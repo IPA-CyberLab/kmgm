@@ -1,9 +1,7 @@
-package validityperiod
+package period
 
 import (
 	"fmt"
-	"regexp"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -11,7 +9,7 @@ import (
 type ValidityPeriod struct {
 	// Days specifies the number of days that the issued cert would be valid for.
 	// Days count is ignored if NotAfter is specified to non-zero.
-	Days uint
+	Days
 
 	// NotAfter specifies the timestamp where the cert is considered valid to (inclusive).
 	NotAfter time.Time
@@ -45,38 +43,15 @@ func (p ValidityPeriod) String() string {
 	if !p.NotAfter.IsZero() {
 		return p.NotAfter.Format(notAfterLayout)
 	}
-	if p.Days%365 == 0 {
-		return fmt.Sprintf("%dy", p.Days/365)
-	}
-	return fmt.Sprintf("%dd", p.Days)
+	return p.Days.String()
 }
-
-var (
-	reDays  = regexp.MustCompile(`^(\d+)d$`)
-	reYears = regexp.MustCompile(`^(\d+)y$`)
-)
 
 func (p *ValidityPeriod) UnmarshalFlag(s string) error {
 	if strings.ToLower(s) == "farfuture" {
 		*p = FarFuture
 		return nil
 	}
-	if ms := reDays.FindStringSubmatch(s); len(ms) > 0 {
-		u, err := strconv.ParseUint(ms[1], 10, 32)
-		if err != nil {
-			return fmt.Errorf("Failed to parse days uint %q.", ms[1])
-		}
-		p.Days = uint(u)
-
-		return nil
-	}
-	if ms := reYears.FindStringSubmatch(s); len(ms) > 0 {
-		u, err := strconv.ParseUint(ms[1], 10, 32)
-		if err != nil {
-			return fmt.Errorf("Failed to parse years uint %q.", ms[1])
-		}
-		p.Days = uint(u) * 365
-
+	if err := p.Days.UnmarshalFlag(s); err == nil {
 		return nil
 	}
 	if t, err := time.ParseInLocation(notAfterLayout, s, time.Local); err == nil {

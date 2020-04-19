@@ -11,7 +11,7 @@ import (
 	"github.com/IPA-CyberLab/kmgm/dname"
 	"github.com/IPA-CyberLab/kmgm/keyusage"
 	"github.com/IPA-CyberLab/kmgm/san"
-	"github.com/IPA-CyberLab/kmgm/validityperiod"
+	"github.com/IPA-CyberLab/kmgm/period"
 	"github.com/IPA-CyberLab/kmgm/wcrypto"
 )
 
@@ -19,7 +19,7 @@ type Config struct {
 	Subject  *dname.Config                 `yaml:"subject" flags:""`
 	Names    san.Names                     `yaml:"subjectAltNames" flags:"subject-alt-name,set cert subjectAltNames,san"`
 	KeyUsage keyusage.KeyUsage             `yaml:"keyUsage" flags:"key-usage,what the key/cert is used for (tlsServer&comma; tlsClient&comma; tlsClientServer),ku"`
-	Validity validityperiod.ValidityPeriod `yaml:"validity" flags:"validity,time duration/timestamp where the cert is valid to (examples: 30d&comma; 1y&comma; 20220530)"`
+	Validity period.ValidityPeriod `yaml:"validity" flags:"validity,time duration/timestamp where the cert is valid to (examples: 30d&comma; 1y&comma; 20220530)"`
 	KeyType  wcrypto.KeyType               `yaml:"keyType" flags:"key-type,private key type (rsa&comma; ecdsa),t"`
 
 	// Don't create issuedb entry.
@@ -34,7 +34,7 @@ func DefaultConfig(baseSubject *dname.Config) (*Config, error) {
 		Subject:  subject,
 		Names:    san.ForThisHost(""),
 		KeyUsage: keyusage.KeyUsageTLSClientServer.Clone(),
-		Validity: validityperiod.ValidityPeriod{Days: 820},
+		Validity: period.ValidityPeriod{Days: 820},
 		KeyType:  wcrypto.KeyRSA4096,
 	}
 	return cfg, err
@@ -56,7 +56,7 @@ func ConfigFromCert(cert *x509.Certificate) (*Config, error) {
 		Subject:  dname.FromPkixName(cert.Subject),
 		Names:    san.FromCertificate(cert),
 		KeyUsage: keyusage.FromCertificate(cert),
-		Validity: validityperiod.ValidityPeriod{NotAfter: cert.NotAfter},
+		Validity: period.ValidityPeriod{NotAfter: cert.NotAfter},
 		KeyType:  kt,
 	}, nil
 }

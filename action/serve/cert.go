@@ -16,7 +16,7 @@ import (
 	"github.com/IPA-CyberLab/kmgm/keyusage"
 	"github.com/IPA-CyberLab/kmgm/san"
 	"github.com/IPA-CyberLab/kmgm/storage"
-	"github.com/IPA-CyberLab/kmgm/validityperiod"
+	"github.com/IPA-CyberLab/kmgm/period"
 	"github.com/IPA-CyberLab/kmgm/wcrypto"
 )
 
@@ -77,7 +77,7 @@ func ensureServerCert(env *action.Environment, authp *storage.Profile, ns san.Na
 			},
 			Names:    ns,
 			KeyUsage: keyusage.KeyUsageTLSServer.Clone(),
-			Validity: validityperiod.ValidityPeriod{Days: 820},
+			Validity: period.ValidityPeriod{Days: 820},
 			KeyType:  wcrypto.ServerKeyType,
 
 			NoIssueDBEntry: true,

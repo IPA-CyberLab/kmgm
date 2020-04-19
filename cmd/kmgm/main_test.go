@@ -28,9 +28,9 @@ import (
 	"github.com/IPA-CyberLab/kmgm/frontend"
 	"github.com/IPA-CyberLab/kmgm/ipapi"
 	"github.com/IPA-CyberLab/kmgm/keyusage"
+	"github.com/IPA-CyberLab/kmgm/period"
 	"github.com/IPA-CyberLab/kmgm/san"
 	"github.com/IPA-CyberLab/kmgm/storage"
-	"github.com/IPA-CyberLab/kmgm/validityperiod"
 	"github.com/IPA-CyberLab/kmgm/wcrypto"
 )
 
@@ -510,6 +510,7 @@ noDefault: true
 }
 
 // FIXME[P2]: test expired ca
+// FIXME[P2]: dump-template renewal yaml
 
 func setupCertAtPath(t *testing.T, basedir string, pub crypto.PublicKey, certPath string) {
 	t.Helper()
@@ -530,7 +531,7 @@ func setupCertAtPath(t *testing.T, basedir string, pub crypto.PublicKey, certPat
 		},
 		Names:    san.MustParse("san.example,192.168.0.10"),
 		KeyUsage: keyusage.KeyUsageTLSClientServer.Clone(),
-		Validity: validityperiod.ValidityPeriod{Days: 12},
+		Validity: period.ValidityPeriod{Days: 12},
 		KeyType:  wcrypto.KeyRSA4096,
 	}
 
@@ -624,39 +625,7 @@ func TestIssue_RenewCert_NoDefault(t *testing.T) {
 
 	// FIXME[P2]: Wrong key (priv.pub doesn't match cert pub)
 
-	t.Run("RenewBefore_NotYet", func(t *testing.T) {
-		certPath := filepath.Join(basedir, "renewBefore.cert.pem")
-
-		yaml := []byte(fmt.Sprintf(`
-      issue:
-        subject:
-          commonName: test_leaf_CN
-          organization: test_leaf_Org
-          organizationalUnit: test_leaf_OU
-          country: DE
-          locality: test_leaf_L
-          province: test_leaf_P
-          streetAddress: test_leaf_SA
-          postalCode: test_leaf_PC
-        keyType: rsa
-        keyUsage:
-          preset: tlsClient
-        validity: 30d
-
-      certPath: %s
-      privateKeyPath: %s
-      renewBefore: 10d
-
-      noDefault: true
-      `, certPath, privPath))
-
-		logs, err := runKmgm(t, basedir, yaml, []string{"issue"}, nowDefault)
-		expectErr(t, err, issue.IncompatibleCertErr{})
-		_ = logs
-		t.Fail()
-	})
-
-	t.Run("Success", func(t *testing.T) {
+	t.Run("RenewBefore_NotSpecified", func(t *testing.T) {
 		yaml := []byte(fmt.Sprintf(`
       issue:
         subject:
@@ -690,6 +659,91 @@ func TestIssue_RenewCert_NoDefault(t *testing.T) {
 
 		if err := wcrypto.VerifyPublicKeyMatch(cert.PublicKey, pub); err != nil {
 			t.Errorf("VerifyPublicKey: %v", err)
+		}
+		if nowDefault.Sub(cert.NotBefore) > time.Hour {
+			t.Errorf("cert.NotBefore not updated. Renew failed.")
+		}
+	})
+
+	t.Run("RenewBefore_NotYet", func(t *testing.T) {
+		certPath := filepath.Join(basedir, "renewBefore.cert.pem")
+		setupCertAtPath(t, basedir, pub, certPath)
+
+		yaml := []byte(fmt.Sprintf(`
+      issue:
+        subject:
+          commonName: test_leaf_CN
+          organization: test_leaf_Org
+          organizationalUnit: test_leaf_OU
+          country: DE
+          locality: test_leaf_L
+          province: test_leaf_P
+          streetAddress: test_leaf_SA
+          postalCode: test_leaf_PC
+        keyType: rsa
+        keyUsage:
+          preset: tlsClientServer
+        validity: 30d
+
+      certPath: %s
+      privateKeyPath: %s
+      renewBefore: 10d
+
+      noDefault: true
+      `, certPath, privPath))
+
+		now := time.Date(2020, time.February, 2, 0, 0, 0, 0, time.UTC)
+		logs, err := runKmgm(t, basedir, yaml, []string{"issue"}, now)
+		expectErr(t, err, issue.CertStillValidErr{})
+		_ = logs
+
+		cert, err := storage.ReadCertificateFile(certPath)
+		if err != nil {
+			t.Fatalf("%v", err)
+		}
+		if now.Sub(cert.NotBefore) < time.Hour {
+			t.Errorf("Shouldn't have renewed, but renewed: cert.NotBefore %v", cert.NotBefore)
+		}
+	})
+
+	t.Run("RenewBefore_ExpireSoon", func(t *testing.T) {
+		certPath := filepath.Join(basedir, "renewBefore.cert.pem")
+		setupCertAtPath(t, basedir, pub, certPath)
+
+		yaml := []byte(fmt.Sprintf(`
+      issue:
+        subject:
+          commonName: test_leaf_CN
+          organization: test_leaf_Org
+          organizationalUnit: test_leaf_OU
+          country: DE
+          locality: test_leaf_L
+          province: test_leaf_P
+          streetAddress: test_leaf_SA
+          postalCode: test_leaf_PC
+        keyType: rsa
+        keyUsage:
+          preset: tlsClientServer
+        validity: 30d
+
+      certPath: %s
+      privateKeyPath: %s
+      renewBefore: 10d
+
+      noDefault: true
+      `, certPath, privPath))
+
+		now := time.Date(2020, time.February, 10, 0, 0, 0, 0, time.UTC)
+		logs, err := runKmgm(t, basedir, yaml, []string{"issue"}, now)
+		expectErr(t, err, nil)
+		_ = logs
+
+		cert, err := storage.ReadCertificateFile(certPath)
+		if err != nil {
+			t.Fatalf("%v", err)
+		}
+		if now.Sub(cert.NotBefore) > time.Hour {
+			t.Errorf("Shouldn't have renewed, but renewed: cert.NotBefore %v", cert.NotBefore)
 		}
 	})
 }

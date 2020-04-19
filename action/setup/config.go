@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/IPA-CyberLab/kmgm/dname"
-	"github.com/IPA-CyberLab/kmgm/validityperiod"
+	"github.com/IPA-CyberLab/kmgm/period"
 	"github.com/IPA-CyberLab/kmgm/wcrypto"
 )
 
@@ -16,7 +16,7 @@ var (
 
 type Config struct {
 	Subject  *dname.Config                 `yaml:"subject" flags:""`
-	Validity validityperiod.ValidityPeriod `yaml:"validity" flags:"validity,time duration/timestamp where the cert is valid to (examples: 30d&comma; 1y&comma; 20220530)"`
+	Validity period.ValidityPeriod `yaml:"validity" flags:"validity,time duration/timestamp where the cert is valid to (examples: 30d&comma; 1y&comma; 20220530)"`
 	KeyType  wcrypto.KeyType               `yaml:"keyType" flags:"key-type,private key type (rsa&comma; ecdsa),t"`
 }
 
@@ -26,7 +26,7 @@ func DefaultConfig() (*Config, error) {
 	cfg := &Config{
 		Subject:  subject,
 		KeyType:  wcrypto.KeyRSA4096,
-		Validity: validityperiod.FarFuture,
+		Validity: period.FarFuture,
 	}
 	return cfg, err
 }

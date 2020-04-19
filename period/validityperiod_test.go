@@ -1,27 +1,27 @@
-package validityperiod_test
+package period_test
 
 import (
 	"reflect"
 	"testing"
 	"time"
 
-	"github.com/IPA-CyberLab/kmgm/validityperiod"
+	"github.com/IPA-CyberLab/kmgm/period"
 )
 
 var testcases = []struct {
-	Validity validityperiod.ValidityPeriod
+	Validity period.ValidityPeriod
 	String   string
 }{
-	{validityperiod.ValidityPeriod{Days: 123}, "123d"},
-	{validityperiod.ValidityPeriod{Days: 245}, "245d"},
-	{validityperiod.ValidityPeriod{Days: 3650}, "10y"},
-	{validityperiod.ValidityPeriod{NotAfter: time.Date(2019, 6, 1, 0, 0, 0, 0, time.Local)}, "20190601"},
-	{validityperiod.FarFuture, "farfuture"},
+	{period.ValidityPeriod{Days: 123}, "123d"},
+	{period.ValidityPeriod{Days: 245}, "245d"},
+	{period.ValidityPeriod{Days: 3650}, "10y"},
+	{period.ValidityPeriod{NotAfter: time.Date(2019, 6, 1, 0, 0, 0, 0, time.Local)}, "20190601"},
+	{period.FarFuture, "farfuture"},
 }
 
 func TestValidityPeriod_UnmarshalFlag(t *testing.T) {
 	for _, tc := range testcases {
-		var p validityperiod.ValidityPeriod
+		var p period.ValidityPeriod
 		if err := p.UnmarshalFlag(tc.String); err != nil {
 			t.Errorf("Failed to parse %q: %v", tc.String, err)
 		}
