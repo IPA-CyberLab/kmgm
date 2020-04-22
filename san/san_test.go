@@ -86,3 +86,15 @@ func TestForThisHost_Empty(t *testing.T) {
 		}
 	}
 }
+
+func TestCompatibleWith(t *testing.T) {
+	a := san.MustParse("a,b.example,c.example.net")
+	if err := a.CompatibleWith(a); err != nil {
+		t.Errorf("%v", err)
+	}
+
+	b := san.MustParse("a,b.example,c.example")
+	if err := a.CompatibleWith(b); err == nil {
+		t.Errorf("should have errored")
+	}
+}

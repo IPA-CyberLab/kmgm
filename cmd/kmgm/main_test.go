@@ -579,6 +579,29 @@ func TestIssue_RenewCert_NoDefault(t *testing.T) {
       issue:
         subject:
           commonName: different_commonName
+        subjectAltNames: ["san.example", "192.168.0.10"]
+        keyType: rsa
+        keyUsage:
+          preset: tlsClientServer
+        validity: 30d
+
+      certPath: %s
+      privateKeyPath: %s
+
+      noDefault: true
+      `, certPath, privPath))
+
+		logs, err := runKmgm(t, basedir, yaml, []string{"issue"}, nowDefault)
+		expectErr(t, err, issue.IncompatibleCertErr{})
+		_ = logs
+	})
+
+	t.Run("SanMismatch", func(t *testing.T) {
+		yaml := []byte(fmt.Sprintf(`
+      issue:
+        subject:
+          commonName: test_leaf_CN
+        subjectAltNames: ["foo.example", "192.168.0.10"]
         keyType: rsa
         keyUsage:
           preset: tlsClientServer
@@ -637,6 +660,7 @@ func TestIssue_RenewCert_NoDefault(t *testing.T) {
           province: test_leaf_P
           streetAddress: test_leaf_SA
           postalCode: test_leaf_PC
+        subjectAltNames: ["san.example", "192.168.0.10"]
         keyType: rsa
         keyUsage:
           preset: tlsClientServer
@@ -680,6 +704,7 @@ func TestIssue_RenewCert_NoDefault(t *testing.T) {
           province: test_leaf_P
           streetAddress: test_leaf_SA
           postalCode: test_leaf_PC
+        subjectAltNames: ["san.example", "192.168.0.10"]
         keyType: rsa
         keyUsage:
           preset: tlsClientServer
@@ -721,6 +746,7 @@ func TestIssue_RenewCert_NoDefault(t *testing.T) {
           province: test_leaf_P
           streetAddress: test_leaf_SA
           postalCode: test_leaf_PC
+        subjectAltNames: ["san.example", "192.168.0.10"]
         keyType: rsa
         keyUsage:
           preset: tlsClientServer

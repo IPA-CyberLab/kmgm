@@ -4,7 +4,10 @@ import (
 	"testing"
 
 	"github.com/IPA-CyberLab/kmgm/action/issue"
+	"github.com/IPA-CyberLab/kmgm/dname"
+	"github.com/IPA-CyberLab/kmgm/keyusage"
 	"github.com/IPA-CyberLab/kmgm/pemparser"
+	"github.com/IPA-CyberLab/kmgm/san"
 	"github.com/IPA-CyberLab/kmgm/wcrypto"
 )
 
@@ -37,5 +40,15 @@ func TestConfigFromCert(t *testing.T) {
 	if cfg.KeyType != wcrypto.KeySECP256R1 {
 		t.Errorf("KeyType")
 	}
-	// FIXME[P0] cfg.Equals(expected)
+	expected := &issue.Config{
+		Subject: &dname.Config{
+			CommonName: "test_cn",
+		},
+		Names:    san.MustParse("test-cn.example.com"),
+		KeyUsage: keyusage.KeyUsageTLSClientServer.Clone(),
+		KeyType:  wcrypto.KeySECP256R1,
+	}
+	if err := cfg.CompatibleWith(expected); err != nil {
+		t.Fatalf("err: %v", err)
+	}
 }

@@ -73,7 +73,7 @@ func (a Names) CompatibleWith(b Names) error {
 	bs := b.String()
 
 	if as != bs {
-		fmt.Errorf("%q != %q", as, bs)
+		return fmt.Errorf("%q != %q", as, bs)
 	}
 	return nil
 }

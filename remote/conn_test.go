@@ -57,6 +57,7 @@ func runTestServer(t *testing.T) (*action.Environment, *storage.Profile, func())
 		Randr:    rand.Reader,
 		Frontend: &frontend.NonInteractive{Logger: TestLogger},
 		Logger:   TestLogger,
+		NowImpl:  time.Now,
 
 		ProfileName: authprofile.ProfileName,
 	}
