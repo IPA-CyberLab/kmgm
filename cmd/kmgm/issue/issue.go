@@ -384,7 +384,6 @@ var Command = &cli.Command{
 	),
 	Action: func(c *cli.Context) error {
 		env := action.GlobalEnvironment
-		now := env.NowImpl()
 		slog := env.Logger.Sugar()
 
 		profile, err := env.Profile()
@@ -398,6 +397,7 @@ var Command = &cli.Command{
 
 			var caSubject *dname.Config
 			// Inherit CA subject iff CA is setup.
+			now := env.NowImpl()
 			if st := profile.Status(now); st == nil {
 				var err error
 				caSubject, err = profile.ReadCASubject()
