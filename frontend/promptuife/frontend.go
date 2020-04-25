@@ -48,10 +48,6 @@ func stripTrailingWhitespace(s string) string {
 
 func (fe Frontend) IsInteractive() bool { return true }
 
-func (fe Frontend) ShouldLoadDefaults() bool {
-	return true
-}
-
 func (fe Frontend) EditText(beforeEdit string, validator func(string) (string, error)) (string, error) {
 	u, err := user.Current()
 	if err != nil {

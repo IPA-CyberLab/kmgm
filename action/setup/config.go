@@ -1,6 +1,7 @@
 package setup
 
 import (
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"time"
@@ -15,9 +16,9 @@ var (
 )
 
 type Config struct {
-	Subject  *dname.Config                 `yaml:"subject" flags:""`
+	Subject  *dname.Config         `yaml:"subject" flags:""`
 	Validity period.ValidityPeriod `yaml:"validity" flags:"validity,time duration/timestamp where the cert is valid to (examples: 30d&comma; 1y&comma; 20220530)"`
-	KeyType  wcrypto.KeyType               `yaml:"keyType" flags:"key-type,private key type (rsa&comma; ecdsa),t"`
+	KeyType  wcrypto.KeyType       `yaml:"keyType" flags:"key-type,private key type (rsa&comma; ecdsa),t"`
 }
 
 func DefaultConfig() (*Config, error) {
@@ -35,6 +36,29 @@ func EmptyConfig() *Config {
 	return &Config{
 		Subject: &dname.Config{},
 	}
+}
+
+func ConfigFromCert(cert *x509.Certificate) (*Config, error) {
+	kt, err := wcrypto.KeyTypeOfPub(cert.PublicKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Config{
+		Subject:  dname.FromPkixName(cert.Subject),
+		KeyType:  kt,
+		Validity: period.ValidityPeriod{NotAfter: cert.NotAfter},
+	}, nil
+}
+
+func (a *Config) CompatibleWith(b *Config) error {
+	if err := a.Subject.CompatibleWith(b.Subject); err != nil {
+		return err
+	}
+	if a.KeyType != b.KeyType {
+		return fmt.Errorf("KeyType mismatch: %v != %v", a.KeyType, b.KeyType)
+	}
+	return nil
 }
 
 const expireThreshold = 30 * time.Second

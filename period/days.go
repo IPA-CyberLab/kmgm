@@ -6,9 +6,14 @@ import (
 	"strconv"
 )
 
+const immediatelyToken = "immediately"
+
 type Days uint
 
 func (d Days) String() string {
+	if d == 0 {
+		return immediatelyToken
+	}
 	if d%365 == 0 {
 		return fmt.Sprintf("%dy", d/365)
 	}
@@ -16,6 +21,10 @@ func (d Days) String() string {
 }
 
 func (d *Days) UnmarshalFlag(s string) error {
+	if s == immediatelyToken {
+		*d = Days(0)
+		return nil
+	}
 	if ms := reDays.FindStringSubmatch(s); len(ms) > 0 {
 		u, err := strconv.ParseUint(ms[1], 10, 32)
 		if err != nil {

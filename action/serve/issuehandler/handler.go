@@ -124,6 +124,7 @@ func writeKeyCertTar(w io.Writer, privbs, certbs []byte) error {
 
 func (h *Handler) serveHTTPIfPossible(w http.ResponseWriter, r *http.Request) error {
 	slog := h.env.Logger.Sugar()
+	now := h.env.NowImpl()
 
 	q := r.URL.Query()
 
@@ -138,9 +139,9 @@ func (h *Handler) serveHTTPIfPossible(w http.ResponseWriter, r *http.Request) er
 		return err
 	}
 
-	caSubject, err := profile.ReadCASubject()
-	if err != nil {
-		return err
+	var caSubject *dname.Config
+	if st := profile.Status(now); st.Code == storage.ValidCA {
+		caSubject = dname.FromPkixName(st.CACert.Subject)
 	}
 
 	subject, err := dname.DefaultConfig("", caSubject)

@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/IPA-CyberLab/kmgm/dname"
 	"github.com/IPA-CyberLab/kmgm/frontend/validate"
 	"github.com/IPA-CyberLab/kmgm/pemparser"
 	"github.com/IPA-CyberLab/kmgm/wcrypto"
@@ -134,24 +133,31 @@ func CheckFileNotExist(path string) error {
 type CAStatusCode int
 
 const (
-	NotCA = iota
+	ValidCA = iota
+	NotCA
 	Broken
 	Expired
 )
 
 type CAStatus struct {
-	Profile       *Profile
-	Code          CAStatusCode
-	UnderlyingErr error
+	Profile *Profile
+	Code    CAStatusCode
+	CACert  *x509.Certificate
+	Err     error
+}
+
+func (s *CAStatus) addError(err error) {
+	s.Err = multierr.Append(s.Err, err)
 }
 
 func (s *CAStatus) Error() string {
-	if s == nil {
-		return "ValidCA"
-	}
-
 	var str string
 	switch s.Code {
+	case ValidCA:
+		if s.Err != nil {
+			panic("ValidCA should not have any errors")
+		}
+		return "ValidCA"
 	case NotCA:
 		str = fmt.Sprintf("Most likely the CA is not setup yet. No CA files found at %q", s.Profile.BaseDir)
 	case Broken:
@@ -160,17 +166,24 @@ func (s *CAStatus) Error() string {
 		str = "The CA has an expired certificate."
 	}
 
-	if s.UnderlyingErr != nil {
-		return fmt.Sprintf("%s: %v", str, s.UnderlyingErr)
+	if s.Err != nil {
+		return fmt.Sprintf("%s: %v", str, s.Err)
 	}
 	return str
 }
 
 func (s *CAStatus) Unwrap() error {
-	return s.UnderlyingErr
+	return s.Err
 }
 
-func (s *Profile) Status(now time.Time) *CAStatus {
+func (s *Profile) Status(now time.Time) (st *CAStatus) {
+	st = &CAStatus{
+		Profile: s,
+		Code:    ValidCA,
+		CACert:  nil,
+		Err:     nil,
+	}
+
 	paths := []string{
 		s.CAPrivateKeyPath(),
 		s.CACertPath(),
@@ -187,29 +200,39 @@ func (s *Profile) Status(now time.Time) *CAStatus {
 	}
 	if notExistCount == len(paths) {
 		// No existing CA file found.
-		return &CAStatus{s, NotCA, nil}
+		st.Code = NotCA
+		return
 	} else if notExistCount != 0 {
 		// Some CA files are missing.
-		return &CAStatus{s, Broken, merr}
+		st.Code = Broken
+		st.addError(merr)
+		return
 	}
 	// All CA files are found.
 
 	capriv, err := s.ReadCAPrivateKey()
 	if err != nil {
-		return &CAStatus{s, Broken, err}
+		st.Code = Broken
+		st.addError(err)
 	}
 	cacert, err := s.ReadCACertificate()
 	if err != nil {
-		return &CAStatus{s, Broken, err}
+		st.Code = Broken
+		st.addError(err)
+	} else {
+		st.CACert = cacert
 	}
 	// FIXME[P2]: check issuedb json?
 
-	if err := wcrypto.VerifyCACertAndKey(capriv, cacert, now); err != nil {
-		// FIXME[P2]: There could be other failure reasons as well
-		return &CAStatus{s, Expired, err}
+	if capriv != nil && cacert != nil {
+		if err := wcrypto.VerifyCACertAndKey(capriv, cacert, now); err != nil {
+			// FIXME[P2]: There could be other failure reasons as well
+			st.Code = Expired
+			st.addError(err)
+		}
 	}
 
-	return nil
+	return
 }
 
 func WriteCertificateDerFile(p string, certDer []byte) error {
@@ -261,15 +284,6 @@ func ReadCertificateFile(p string) (*x509.Certificate, error) {
 func (s *Profile) ReadCACertificate() (*x509.Certificate, error) {
 	p := s.CACertPath()
 	return ReadCertificateFile(p)
-}
-
-func (s *Profile) ReadCASubject() (*dname.Config, error) {
-	cacert, err := s.ReadCACertificate()
-	if err != nil {
-		return nil, err
-	}
-
-	return dname.FromPkixName(cacert.Subject), nil
 }
 
 func (s *Profile) ReadServerCertificate() (*x509.Certificate, error) {

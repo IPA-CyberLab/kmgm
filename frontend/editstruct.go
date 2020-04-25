@@ -14,7 +14,6 @@ import (
 type templateContext struct {
 	ErrorString string      `yaml:"-"`
 	Config      interface{} `yaml:"config"`
-	NoDefault   bool        `yaml:"noDefault"`
 }
 
 const stripBeforeLine = "# *** LINES ABOVE WILL BE AUTOMATICALLY DELETED ***"
@@ -40,12 +39,8 @@ const configTemplateTextPrologue = `
 {{- end }}
 {{- with .Config -}}
 `
-const configTemplateTextEpilogue = `{{- end }}
-# noDefault prevents kmgm from assigning default values to unspecified fields.
-# Setting "noDefault: true" is recommended for non-interactive invocations to
-# avoid unintended behavior.
-noDefault: {{ .NoDefault }}
-`
+
+const configTemplateTextEpilogue = `{{- end }}`
 
 func PrependYamlCommentLiteral(s string) string {
 	var b strings.Builder
@@ -149,9 +144,15 @@ func DumpTemplate(tmplstr string, cfg interface{}) error {
 	}
 
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, templateContext{Config: cfg, NoDefault: true}); err != nil {
+	if err := tmpl.Execute(&buf, templateContext{Config: cfg}); err != nil {
 		return err
 	}
+	buf.WriteString(`
+# noDefault prevents kmgm from assigning default values to unspecified fields.
+# Setting "noDefault: true" is recommended for non-interactive invocations to
+# avoid unintended behavior.
+noDefault: true
+`)
 
 	if _, err := fmt.Print(buf.String()); err != nil {
 		return err
@@ -165,7 +166,7 @@ func EditStructWithVerifier(fe Frontend, tmplstr string, cfg interface{}, Verify
 		return err
 	}
 
-	tctx := templateContext{Config: cfg, NoDefault: fe.ShouldLoadDefaults()}
+	tctx := templateContext{Config: cfg}
 
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, tctx); err != nil {

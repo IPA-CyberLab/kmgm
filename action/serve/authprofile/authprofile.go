@@ -23,11 +23,11 @@ func Ensure(env *action.Environment) (*storage.Profile, error) {
 		return nil, err
 	}
 
-	if st := profile.Status(env.NowImpl()); st != nil {
-		if st.Code != storage.NotCA {
-			return nil, st
-		}
-
+	st := profile.Status(env.NowImpl())
+	switch st.Code {
+	case storage.ValidCA:
+		return profile, nil
+	case storage.NotCA:
 		slog.Infof("Setting up CA for kmgm HTTPS/gRPC server.")
 		start := time.Now()
 		defer func() {
@@ -51,10 +51,11 @@ func Ensure(env *action.Environment) (*storage.Profile, error) {
 			return nil, fmt.Errorf("Failed to setup serverauth CA: %v", err)
 		}
 
-		if st := profile.Status(env.NowImpl()); st != nil {
-			return nil, err
+		if st := profile.Status(env.NowImpl()); st.Code != storage.ValidCA {
+			return nil, st
 		}
+		return profile, nil
+	default:
+		return nil, st
 	}
-
-	return profile, err
 }

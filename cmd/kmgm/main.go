@@ -129,25 +129,26 @@ func NewApp() *cli.App {
 		}
 
 		configFile := c.String("config")
-		var configText string
 		if configFile != "" {
 			bs, err := ioutil.ReadFile(configFile)
 			if err != nil {
 				return fmt.Errorf("Failed to read specified config file: %w", err)
 			}
-			configText = string(bs)
+			configText := string(bs)
 			if strings.TrimSpace(configText) == "" {
 				return fmt.Errorf("The specified config file %s was empty.", configFile)
+			}
+			app.Metadata["config"] = bs
+
+			if frontend.IsNoDefaultSpecifiedInYaml(bs) {
+				logger.Debug("The specified config file has NoDefault set to true.")
+				c.Set("no-default", "true")
 			}
 		}
 
 		var fe frontend.Frontend
-		if configText != "" || c.Bool("non-interactive") || !isatty.IsTerminal(os.Stdin.Fd()) {
-			fe = &frontend.NonInteractive{
-				Logger:     logger,
-				ConfigText: configText,
-				NoDefault:  c.Bool("no-default"),
-			}
+		if c.Bool("non-interactive") || !isatty.IsTerminal(os.Stdin.Fd()) {
+			fe = &frontend.NonInteractive{Logger: logger}
 		} else {
 			fe = promptuife.Frontend{}
 		}

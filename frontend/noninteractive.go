@@ -8,9 +8,7 @@ import (
 )
 
 type NonInteractive struct {
-	Logger     *zap.Logger
-	ConfigText string
-	NoDefault  bool
+	Logger *zap.Logger
 }
 
 var _ = Frontend(&NonInteractive{})
@@ -21,22 +19,21 @@ func (fe *NonInteractive) Confirm(q string) error {
 	return nil
 }
 
-func (fe *NonInteractive) ShouldLoadDefaults() bool {
-	if fe.ConfigText == "" {
-		// If no ConfigText provided, setup relies on cmdline flags only, which
+// FIXME[P3]: move this to some other pkg?
+func IsNoDefaultSpecifiedInYaml(bs []byte) bool {
+	if bs == nil {
+		// If no yaml provided, setup relies on cmdline flags only, which
 		// user would want to rely on defaults unless --no-default was specified.
-		return !fe.NoDefault
+		return false
 	}
 
-	// Iff "noDefault: false" was specified, do load defaults.
-	// Otherwise, start from scratch.
 	s := struct {
 		NoDefault bool `yaml:"noDefault"`
 	}{false}
-	if err := yaml.Unmarshal([]byte(fe.ConfigText), &s); err != nil {
+	if err := yaml.Unmarshal(bs, &s); err != nil {
 		return false
 	}
-	return !s.NoDefault
+	return s.NoDefault
 }
 
 func (fe *NonInteractive) IsInteractive() bool { return false }
@@ -44,7 +41,7 @@ func (fe *NonInteractive) IsInteractive() bool { return false }
 func (fe *NonInteractive) EditText(beforeEdit string, validator func(string) (string, error)) (string, error) {
 	slog := fe.Logger.Sugar()
 
-	txt, err := validator(fe.ConfigText)
+	txt, err := validator(beforeEdit)
 	if err != nil {
 		slog.Debugf("[noninteractive] Parsed input was:\n%s", txt)
 		return txt, fmt.Errorf("Validate input failed: %w", err)

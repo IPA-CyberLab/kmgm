@@ -10,17 +10,17 @@ import (
 
 	"github.com/IPA-CyberLab/kmgm/dname"
 	"github.com/IPA-CyberLab/kmgm/keyusage"
-	"github.com/IPA-CyberLab/kmgm/san"
 	"github.com/IPA-CyberLab/kmgm/period"
+	"github.com/IPA-CyberLab/kmgm/san"
 	"github.com/IPA-CyberLab/kmgm/wcrypto"
 )
 
 type Config struct {
-	Subject  *dname.Config                 `yaml:"subject" flags:""`
-	Names    san.Names                     `yaml:"subjectAltNames" flags:"subject-alt-name,set cert subjectAltNames,san"`
-	KeyUsage keyusage.KeyUsage             `yaml:"keyUsage" flags:"key-usage,what the key/cert is used for (tlsServer&comma; tlsClient&comma; tlsClientServer),ku"`
+	Subject  *dname.Config         `yaml:"subject" flags:""`
+	Names    san.Names             `yaml:"subjectAltNames" flags:"subject-alt-name,set cert subjectAltNames,san"`
+	KeyUsage keyusage.KeyUsage     `yaml:"keyUsage" flags:"key-usage,what the key/cert is used for (tlsServer&comma; tlsClient&comma; tlsClientServer),ku"`
 	Validity period.ValidityPeriod `yaml:"validity" flags:"validity,time duration/timestamp where the cert is valid to (examples: 30d&comma; 1y&comma; 20220530)"`
-	KeyType  wcrypto.KeyType               `yaml:"keyType" flags:"key-type,private key type (rsa&comma; ecdsa),t"`
+	KeyType  wcrypto.KeyType       `yaml:"keyType" flags:"key-type,private key type (rsa&comma; ecdsa),t"`
 
 	// Don't create issuedb entry.
 	NoIssueDBEntry bool
@@ -69,7 +69,7 @@ func (a *Config) CompatibleWith(b *Config) error {
 		return err
 	}
 	if !a.KeyUsage.Equals(b.KeyUsage) {
-		return fmt.Errorf("KeyUsage mismatch")
+		return fmt.Errorf("KeyUsage mismatch: %v != %v", a.KeyUsage, b.KeyUsage)
 	}
 	if a.KeyType != b.KeyType {
 		return fmt.Errorf("KeyType mismatch: %v != %v", a.KeyType, b.KeyType)

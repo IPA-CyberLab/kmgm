@@ -311,7 +311,7 @@ func TestIssue_NoCA(t *testing.T) {
 	t.Cleanup(teardown)
 
 	logs, err := runKmgm(t, basedir, nil, []string{"issue"}, nowDefault)
-	expectErr(t, err, setup.ErrCantRunInteractiveCaSetup)
+	expectErr(t, err, setup.CantRunInteractiveCASetupErr)
 	_ = logs //expectLogMessage(t, logs, "")
 }
 
@@ -358,6 +358,83 @@ func setupCA(t *testing.T, basedir string) {
 	if err := setupa.Run(env, cfg); err != nil {
 		t.Fatalf("setup.Run: %v", err)
 	}
+}
+
+func TestSetup_AlreadyExists(t *testing.T) {
+	basedir, teardown := prepareBasedir(t)
+	t.Cleanup(teardown)
+
+	setupCA(t, basedir)
+
+	t.Run("Default", func(t *testing.T) {
+		logs, err := runKmgm(t, basedir, nil, []string{"setup"}, nowDefault)
+		expectErr(t, err, nil)
+		expectLogMessage(t, logs, "already has a CA setup.")
+	})
+
+	t.Run("NoDefault_MatchingConfig", func(t *testing.T) {
+		yaml := []byte(`
+      setup:
+        subject:
+          commonName: test_CA_CN
+          organization: test_CA_Org
+          organizationalUnit: test_CA_OU
+          country: JP
+          locality: test_CA_L
+          province: test_CA_P
+          streetAddress: test_CA_SA
+          postalCode: test_CA_PC
+        keyType: rsa
+        validity: 1y
+
+      noDefault: true
+      `)
+		logs, err := runKmgm(t, basedir, yaml, []string{"setup"}, nowDefault)
+		expectErr(t, err, nil)
+		expectLogMessage(t, logs, "already has a CA setup.")
+	})
+
+	t.Run("NoDefault_IncompatibleSubject", func(t *testing.T) {
+		yaml := []byte(`
+      setup:
+        subject:
+          commonName: test_CA_CN
+          organization: wrong_Org
+          organizationalUnit: test_CA_OU
+          country: JP
+          locality: test_CA_L
+          province: test_CA_P
+          streetAddress: test_CA_SA
+          postalCode: test_CA_PC
+        keyType: rsa
+        validity: 1y
+
+      noDefault: true
+      `)
+		_, err := runKmgm(t, basedir, yaml, []string{"setup"}, nowDefault)
+		expectErr(t, err, setup.IncompatibleCertErr{})
+	})
+
+	t.Run("NoDefault_IncompatibleKeyType", func(t *testing.T) {
+		yaml := []byte(`
+      setup:
+        subject:
+          commonName: test_CA_CN
+          organization: test_CA_Org
+          organizationalUnit: test_CA_OU
+          country: JP
+          locality: test_CA_L
+          province: test_CA_P
+          streetAddress: test_CA_SA
+          postalCode: test_CA_PC
+        keyType: ecdsa
+        validity: 1y
+
+      noDefault: true
+      `)
+		_, err := runKmgm(t, basedir, yaml, []string{"setup"}, nowDefault)
+		expectErr(t, err, setup.IncompatibleCertErr{})
+	})
 }
 
 func TestIssue_Default(t *testing.T) {

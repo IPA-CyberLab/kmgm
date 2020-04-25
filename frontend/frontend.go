@@ -9,7 +9,6 @@ type ConfigItem struct {
 type Frontend interface {
 	Confirm(question string) error
 	IsInteractive() bool
-	ShouldLoadDefaults() bool
 	EditText(template string, validator func(string) (string, error)) (edited string, err error)
 	Configure([]ConfigItem) error
 }

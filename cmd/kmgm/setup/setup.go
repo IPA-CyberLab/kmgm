@@ -2,8 +2,10 @@ package setup
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/urfave/cli/v2"
+	"gopkg.in/yaml.v2"
 
 	"github.com/IPA-CyberLab/kmgm/action"
 	"github.com/IPA-CyberLab/kmgm/action/setup"
@@ -46,22 +48,57 @@ setup:
 {{ end -}}
 `
 
-var ErrCantRunInteractiveCaSetup = errors.New("EnsureCA: Could not resort to interactive CA setup due to non-interactive frontend.")
+var CantRunInteractiveCASetupErr = errors.New("EnsureCA: Could not resort to interactive CA setupnon-interactive frontend.")
 
-func EnsureCA(env *action.Environment, cfg *Config, profile *storage.Profile, isSetupCommand bool) error {
+type EnsureCAMode int
+
+const (
+	DisallowNonInteractiveSetup EnsureCAMode = iota
+	AllowNonInteractiveSetup
+	AllowNonInteractiveSetupAndRequireCompatibleConfig
+)
+
+type IncompatibleCertErr struct {
+	Wrap error
+}
+
+func (e IncompatibleCertErr) Error() string {
+	return fmt.Sprintf("CA setup requested, but existing CA cert was issued with a different config. Please specify a matching config or reset existing CA: %v", e.Wrap)
+}
+
+func (IncompatibleCertErr) Is(target error) bool {
+	_, ok := target.(IncompatibleCertErr)
+	return ok
+}
+
+func (e IncompatibleCertErr) Unwrap() error {
+	return e.Wrap
+}
+
+func EnsureCA(env *action.Environment, cfg *Config, profile *storage.Profile, mode EnsureCAMode) error {
 	slog := env.Logger.Sugar()
 
 	now := env.NowImpl()
-	st := profile.Status(now)
-	if st == nil {
+	if st := profile.Status(now); st.Code == storage.ValidCA {
+		if mode == AllowNonInteractiveSetupAndRequireCompatibleConfig {
+			certCfg, err := setup.ConfigFromCert(st.CACert)
+			if err != nil {
+				return IncompatibleCertErr{Wrap: err}
+			}
+
+			if err := cfg.Setup.CompatibleWith(certCfg); err != nil {
+				return IncompatibleCertErr{Wrap: err}
+			}
+		}
+
 		slog.Infof("%v already has a CA setup.", profile)
 		return nil
-	}
-	if st.Code != storage.NotCA {
+	} else if st.Code != storage.NotCA {
 		return st
 	}
-	if !isSetupCommand && !env.Frontend.IsInteractive() {
-		return ErrCantRunInteractiveCaSetup
+
+	if mode == DisallowNonInteractiveSetup && !env.Frontend.IsInteractive() {
+		return CantRunInteractiveCASetupErr
 	}
 
 	if cfg == nil {
@@ -112,7 +149,7 @@ var Command = &cli.Command{
 		}
 
 		cfg := &Config{}
-		if c.Bool("dump-template") || env.Frontend.ShouldLoadDefaults() {
+		if c.Bool("dump-template") || !c.Bool("no-default") {
 			slog.Debugf("Constructing default config.")
 
 			setupcfg, err := setup.DefaultConfig()
@@ -127,6 +164,14 @@ var Command = &cli.Command{
 			cfg.Setup = setup.EmptyConfig()
 		}
 
+		if cfgbs, ok := c.App.Metadata["config"]; ok {
+			if err := yaml.UnmarshalStrict(cfgbs.([]byte), cfg); err != nil {
+				return err
+			}
+		}
+		if err := structflags.PopulateStructFromCliContext(cfg, c); err != nil {
+			return err
+		}
 		if c.Bool("dump-template") {
 			if err := frontend.DumpTemplate(configTemplateText, cfg); err != nil {
 				return err
@@ -134,12 +179,11 @@ var Command = &cli.Command{
 			return nil
 		}
 
-		// FIXME[P1]: This must come after EditStructWithVerifier.
-		if err := structflags.PopulateStructFromCliContext(cfg, c); err != nil {
-			return err
+		mode := AllowNonInteractiveSetup
+		if c.Bool("no-default") {
+			mode = AllowNonInteractiveSetupAndRequireCompatibleConfig
 		}
-
-		if err := EnsureCA(env, cfg, profile, true); err != nil {
+		if err := EnsureCA(env, cfg, profile, mode); err != nil {
 			return err
 		}
 

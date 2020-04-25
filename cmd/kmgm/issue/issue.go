@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/urfave/cli/v2"
+	"gopkg.in/yaml.v2"
 
 	"github.com/IPA-CyberLab/kmgm/action"
 	"github.com/IPA-CyberLab/kmgm/action/issue"
@@ -177,6 +178,10 @@ func PromptCertPath(env *action.Environment, privPath, certPath string) (string,
 const ConfigTemplateText = `
 ---
 # kmgm pki new cert config
+
+privateKeyPath: {{ .PrivateKeyPath }}
+certPath: {{ .CertPath }}
+
 {{- with .Issue }}
 issue:
 {{ template "subject" .Subject }}
@@ -228,6 +233,8 @@ issue:
     {{ CommentOutIfFalse (and (eq .KeyUsage.Preset "custom") (HasExtKeyUsage "serverAuth" .KeyUsage.ExtKeyUsages)) -}}
     - serverAuth
 {{ end -}}
+
+renewBefore: {{ .RenewBefore }}
 `
 
 type Config struct {
@@ -392,18 +399,14 @@ var Command = &cli.Command{
 		}
 
 		cfg := &Config{}
-		if c.Bool("dump-template") || env.Frontend.ShouldLoadDefaults() {
+		if c.Bool("dump-template") || !c.Bool("no-default") {
 			slog.Debugf("Constructing default config.")
 
 			var caSubject *dname.Config
 			// Inherit CA subject iff CA is setup.
 			now := env.NowImpl()
-			if st := profile.Status(now); st == nil {
-				var err error
-				caSubject, err = profile.ReadCASubject()
-				if err != nil {
-					return err
-				}
+			if st := profile.Status(now); st.Code == storage.ValidCA {
+				caSubject = dname.FromPkixName(st.CACert.Subject)
 			}
 
 			issuecfg, err := issue.DefaultConfig(caSubject)
@@ -417,15 +420,26 @@ var Command = &cli.Command{
 			cfg.Issue = issue.EmptyConfig()
 		}
 
+		if !c.Bool("dump-template") {
+			if err := setup.EnsureCA(env, nil, profile, setup.DisallowNonInteractiveSetup); err != nil {
+				return err
+			}
+		}
+
+		if cfgbs, ok := c.App.Metadata["config"]; ok {
+			if err := yaml.UnmarshalStrict(cfgbs.([]byte), cfg); err != nil {
+				return err
+			}
+		}
+		if err := structflags.PopulateStructFromCliContext(cfg, c); err != nil {
+			return err
+		}
+
 		if c.Bool("dump-template") {
 			if err := frontend.DumpTemplate(ConfigTemplateText, cfg); err != nil {
 				return err
 			}
 			return nil
-		}
-
-		if err := setup.EnsureCA(env, nil, profile, false); err != nil {
-			return err
 		}
 
 		err = PrepareKeyTypePath(env, &cfg.Issue.KeyType, &cfg.PrivateKeyPath)
@@ -446,9 +460,6 @@ var Command = &cli.Command{
 				}
 				return nil
 			}); err != nil {
-			return err
-		}
-		if err := structflags.PopulateStructFromCliContext(cfg, c); err != nil {
 			return err
 		}
 
