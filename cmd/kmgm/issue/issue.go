@@ -1,6 +1,7 @@
 package issue
 
 import (
+	"context"
 	"crypto"
 	"errors"
 	"fmt"
@@ -116,6 +117,9 @@ func EnsurePrivateKey(env *action.Environment, ktype wcrypto.KeyType, privPath s
 		return nil, fmt.Errorf("os.Stat(%q): %w", privPath, err)
 	}
 
+	if ktype == wcrypto.KeyAny {
+		ktype = wcrypto.DefaultKeyType
+	}
 	priv, err := wcrypto.GenerateKey(env.Randr, ktype, "", env.Logger)
 	if err != nil {
 		return nil, err
@@ -312,8 +316,9 @@ type CertStillValidErr struct {
 }
 
 func (e CertStillValidErr) Error() string {
-	return fmt.Sprintf("Existing cert valid for %s, which is more than renewBefore %v (%v)",
-		e.ValidLeft, e.RenewBefore, time.Duration(e.RenewBefore)*24*time.Hour)
+	days := (e.ValidLeft / (24 * time.Hour))
+	return fmt.Sprintf("Existing cert valid for %dd (%v), which is more than renewBefore %v (%v)",
+		days, e.ValidLeft, e.RenewBefore, time.Duration(e.RenewBefore)*24*time.Hour)
 }
 
 func (CertStillValidErr) Is(target error) bool {
@@ -346,11 +351,13 @@ func (c *Config) verifyExistingCert(env *action.Environment, pub crypto.PublicKe
 		validLeft := cert.NotAfter.Sub(now)
 		s.Infof("Existing cert valid until %s.", cert.NotAfter.Format(time.UnixDate))
 
-		d := time.Duration(c.RenewBefore) * 24 * time.Hour
-		if d != 0 && validLeft > d {
+		if d := time.Duration(c.RenewBefore) * 24 * time.Hour; d == 0 {
+			s.Infof("Proceeding anyways, since an immediate renewal was specified.")
+		} else if validLeft > d {
 			return CertStillValidErr{ValidLeft: validLeft, RenewBefore: c.RenewBefore}
+		} else {
+			s.Infof("Existing cert valid for %s, which is less than renewBefore %v (%v). Proceeding.", validLeft, c.RenewBefore, d)
 		}
-		s.Infof("Existing cert valid for %s, which is less than renewBefore %v (%v)", validLeft, c.RenewBefore, d)
 
 		return nil
 	} else if !os.IsNotExist(err) {
@@ -380,16 +387,11 @@ func (c *Config) Verify(env *action.Environment) error {
 	return nil
 }
 
-var Command = &cli.Command{
-	Name:  "issue",
-	Usage: "Issue a new certificate or renew an existing certificate. Generates private key if needed.",
-	Flags: append(structflags.MustPopulateFlagsFromStruct(Config{}),
-		&cli.BoolFlag{
-			Name:  "dump-template",
-			Usage: "dump configuration template yaml without making actual changes",
-		},
-	),
-	Action: func(c *cli.Context) error {
+type CASubjectFunc func(env *action.Environment) *dname.Config
+type IssueFunc func(ctx context.Context, env *action.Environment, pub crypto.PublicKey, cfg *issue.Config) ([]byte, error)
+
+func ActionImpl(caSubjectFunc CASubjectFunc, issueFunc IssueFunc) func(*cli.Context) error {
+	return func(c *cli.Context) error {
 		env := action.GlobalEnvironment
 		slog := env.Logger.Sugar()
 
@@ -402,14 +404,7 @@ var Command = &cli.Command{
 		if c.Bool("dump-template") || !c.Bool("no-default") {
 			slog.Debugf("Constructing default config.")
 
-			var caSubject *dname.Config
-			// Inherit CA subject iff CA is setup.
-			now := env.NowImpl()
-			if st := profile.Status(now); st.Code == storage.ValidCA {
-				caSubject = dname.FromPkixName(st.CACert.Subject)
-			}
-
-			issuecfg, err := issue.DefaultConfig(caSubject)
+			issuecfg, err := issue.DefaultConfig(caSubjectFunc(env))
 			// issue.DefaultConfig errors are ignorable.
 			if err != nil && !c.Bool("dump-template") {
 				slog.Debugf("Errors encountered while constructing default config: %v", err)
@@ -442,8 +437,7 @@ var Command = &cli.Command{
 			return nil
 		}
 
-		err = PrepareKeyTypePath(env, &cfg.Issue.KeyType, &cfg.PrivateKeyPath)
-		if err != nil {
+		if err := PrepareKeyTypePath(env, &cfg.Issue.KeyType, &cfg.PrivateKeyPath); err != nil {
 			return fmt.Errorf("Failed to acquire private key: %w", err)
 		}
 
@@ -473,7 +467,7 @@ var Command = &cli.Command{
 			return err
 		}
 
-		certDer, err := issue.Run(env, pub, cfg.Issue)
+		certDer, err := issueFunc(c.Context, env, pub, cfg.Issue)
 		if err != nil {
 			return err
 		}
@@ -483,5 +477,36 @@ var Command = &cli.Command{
 		}
 
 		return nil
-	},
+	}
+}
+
+func localCASubject(env *action.Environment) *dname.Config {
+	profile, err := env.Profile()
+	if err != nil {
+		// env.Profile() should have succeeded earlier.
+		panic(err)
+	}
+
+	// Inherit CA subject iff CA is setup.
+	now := env.NowImpl()
+	if st := profile.Status(now); st.Code == storage.ValidCA {
+		return dname.FromPkixName(st.CACert.Subject)
+	}
+	return nil
+}
+
+func localIssue(ctx context.Context, env *action.Environment, pub crypto.PublicKey, cfg *issue.Config) ([]byte, error) {
+	return issue.Run(env, pub, cfg)
+}
+
+var Command = &cli.Command{
+	Name:  "issue",
+	Usage: "Issue a new certificate or renew an existing certificate. Generates private key if needed.",
+	Flags: append(structflags.MustPopulateFlagsFromStruct(Config{}),
+		&cli.BoolFlag{
+			Name:  "dump-template",
+			Usage: "dump configuration template yaml without making actual changes",
+		},
+	),
+	Action: ActionImpl(localCASubject, localIssue),
 }

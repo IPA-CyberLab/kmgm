@@ -35,7 +35,7 @@ func DefaultConfig(baseSubject *dname.Config) (*Config, error) {
 		Names:    san.ForThisHost(""),
 		KeyUsage: keyusage.KeyUsageTLSClientServer.Clone(),
 		Validity: period.ValidityPeriod{Days: 820},
-		KeyType:  wcrypto.KeyRSA4096,
+		KeyType:  wcrypto.KeyAny,
 	}
 	return cfg, err
 }
@@ -71,8 +71,8 @@ func (a *Config) CompatibleWith(b *Config) error {
 	if !a.KeyUsage.Equals(b.KeyUsage) {
 		return fmt.Errorf("KeyUsage mismatch: %v != %v", a.KeyUsage, b.KeyUsage)
 	}
-	if a.KeyType != b.KeyType {
-		return fmt.Errorf("KeyType mismatch: %v != %v", a.KeyType, b.KeyType)
+	if err := a.KeyType.CompatibleWith(b.KeyType); err != nil {
+		return err
 	}
 	return nil
 }

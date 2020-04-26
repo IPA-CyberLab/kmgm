@@ -583,6 +583,11 @@ noDefault: true
 	}
 }
 
+// FIXME[P2]: use exiting key scenario
+// - existing ecdsa key, use default -> shouldn't warn
+// - existing ecdsa key, specified rsa -> fail
+// - existing ecdsa key, specified ecdsa -> pass
+
 // FIXME[P2]: test expired ca
 // FIXME[P2]: dump-template renewal yaml
 

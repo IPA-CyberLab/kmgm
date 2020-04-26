@@ -16,6 +16,7 @@ const (
 	KeySECP256R1
 )
 
+var DefaultKeyType = KeyRSA4096
 var ServerKeyType = KeySECP256R1
 
 func (kt KeyType) String() string {
@@ -67,6 +68,16 @@ func KeyTypeOfPub(pub crypto.PublicKey) (KeyType, error) {
 	default:
 		return KeyAny, fmt.Errorf("Unknown public key type: %v", reflect.TypeOf(pub))
 	}
+}
+
+func (a KeyType) CompatibleWith(b KeyType) error {
+	if a == KeyAny {
+		return nil
+	}
+	if a != b {
+		return fmt.Errorf("KeyType mismatch: %v != %v", a, b)
+	}
+	return nil
 }
 
 func (p *KeyType) UnmarshalFlag(s string) error {
