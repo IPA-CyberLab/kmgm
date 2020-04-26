@@ -76,7 +76,7 @@ func runTestServer(t *testing.T) (*action.Environment, *storage.Profile, func())
 		},
 	}
 
-	srv, err := serve.StartServer(env, cfg)
+	srv, err := serve.StartServer(context.Background(), env, cfg)
 	if err != nil {
 		t.Fatalf("Failed to start server: %v", err)
 	}
