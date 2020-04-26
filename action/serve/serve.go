@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"syscall"
 	"time"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
@@ -19,6 +20,7 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"golang.org/x/sys/unix"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -116,7 +118,7 @@ type Server struct {
 	Shutdown func(ctx context.Context) error
 }
 
-func StartServer(env *action.Environment, cfg *Config) (*Server, error) {
+func StartServer(ctx context.Context, env *action.Environment, cfg *Config) (*Server, error) {
 	slog := env.Logger.Sugar()
 
 	if cfg.Names.Empty() {
@@ -139,11 +141,26 @@ func StartServer(env *action.Environment, cfg *Config) (*Server, error) {
 	}
 
 	listenAddr := cfg.ListenAddr
-	lis, err := net.Listen("tcp", listenAddr)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to listen %q: %w", listenAddr, err)
+	lc := net.ListenConfig{
+		Control: func(network, address string, c syscall.RawConn) error {
+			var soptErr error
+			if err := c.Control(func(fd uintptr) {
+				soptErr = unix.SetsockoptInt(int(fd), unix.SOL_SOCKET, unix.SO_REUSEPORT, 1)
+			}); err != nil {
+				return err
+			}
+			if soptErr != nil {
+				return soptErr
+			}
+			return nil
+		},
 	}
-	slog.Infof("Started to listen at %q. My public key hash is %s.", listenAddr, pubkeyhash)
+	lis, err := lc.Listen(ctx, "tcp", listenAddr)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to listen to %q: %w", listenAddr, err)
+	}
+
+	slog.Infof("Started listening to %q. My public key hash is %s.", listenAddr, pubkeyhash)
 	if cfg.Bootstrap != nil {
 		cfg.Bootstrap.LogHelpMessage(listenAddr, pubkeyhash)
 	}
@@ -231,7 +248,7 @@ func StartServer(env *action.Environment, cfg *Config) (*Server, error) {
 }
 
 func Run(ctx context.Context, env *action.Environment, cfg *Config) error {
-	s, err := StartServer(env, cfg)
+	s, err := StartServer(ctx, env, cfg)
 	if err != nil {
 		return err
 	}

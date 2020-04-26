@@ -21,6 +21,7 @@ require (
 	go.uber.org/zap v1.14.1
 	golang.org/x/net v0.0.0-20200319234117-63522dbf7eec
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
+	golang.org/x/sys v0.0.0-20200317113312-5766fd39f98d
 	golang.org/x/tools v0.0.0-20200319210407-521f4a0cd458 // indirect
 	google.golang.org/genproto v0.0.0-20200319113533-08878b785e9c // indirect
 	google.golang.org/grpc v1.28.0
