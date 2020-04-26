@@ -4,22 +4,26 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"path/filepath"
 	"testing"
 	"time"
 )
 
-func runKmgmServe(t *testing.T) string {
+const BootstrapToken = "testtoken"
+
+func runKmgmServe(t *testing.T) (addrPort, cacertPath string) {
 	basedir, teardown := prepareBasedir(t)
 	t.Cleanup(teardown)
 
 	testPort := 34000
-	addrPort := fmt.Sprintf("127.0.0.1:%d", testPort)
+	addrPort = fmt.Sprintf("127.0.0.1:%d", testPort)
+	cacertPath = filepath.Join(basedir, ".kmgm_server/cacert.pem")
 
 	ctx, cancel := context.WithCancel(context.Background())
 
 	joinC := make(chan struct{})
 	go func() {
-		logs, err := runKmgm(t, ctx, basedir, nil, []string{"serve", "--reuse-port", "--listen-addr", addrPort}, nowDefault)
+		logs, err := runKmgm(t, ctx, basedir, nil, []string{"serve", "--reuse-port", "--listen-addr", addrPort, "--bootstrap-token", BootstrapToken}, nowDefault)
 		expectErr(t, err, context.Canceled)
 		expectLogMessage(t, logs, "Started listening")
 		close(joinC)
@@ -42,9 +46,19 @@ func runKmgmServe(t *testing.T) string {
 		cancel()
 		<-joinC
 	})
-	return addrPort
+	return
 }
 
 func TestServe_Noop(t *testing.T) {
-	_ = runKmgmServe(t)
+	_, _ = runKmgmServe(t)
+}
+
+func TestBootstrap(t *testing.T) {
+	addrPort, cacertPath := runKmgmServe(t)
+
+	basedir, teardown := prepareBasedir(t)
+	t.Cleanup(teardown)
+	logs, err := runKmgm(t, context.Background(), basedir, nil, []string{"client", "--server", addrPort, "--cacert", cacertPath, "--token", BootstrapToken, "bootstrap"}, nowDefault)
+	expectErr(t, err, nil)
+	expectLogMessage(t, logs, "Wrote server connection info to file ")
 }
