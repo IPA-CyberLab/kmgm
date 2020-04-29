@@ -144,10 +144,7 @@ func (h *Handler) serveHTTPIfPossible(w http.ResponseWriter, r *http.Request) er
 		caSubject = dname.FromPkixName(st.CACert.Subject)
 	}
 
-	subject, err := dname.DefaultConfig("", caSubject)
-	if err != nil {
-		return err
-	}
+	subject := dname.DefaultConfig("", caSubject)
 
 	ktype := wcrypto.KeyRSA4096
 	if s := q.Get("ktype"); s != "" {

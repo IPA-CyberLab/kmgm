@@ -9,7 +9,9 @@ import (
 
 	"github.com/IPA-CyberLab/kmgm/action"
 	"github.com/IPA-CyberLab/kmgm/action/setup"
+	"github.com/IPA-CyberLab/kmgm/dname"
 	"github.com/IPA-CyberLab/kmgm/frontend"
+	"github.com/IPA-CyberLab/kmgm/ipapi"
 	"github.com/IPA-CyberLab/kmgm/storage"
 	"github.com/IPA-CyberLab/kmgm/structflags"
 )
@@ -27,6 +29,20 @@ func (c *Config) Verify(env *action.Environment) error {
 	}
 
 	return nil
+}
+
+func DefaultConfig(env *action.Environment) *Config {
+	slog := env.Logger.Sugar()
+
+	geo, err := ipapi.QueryCached(env.Storage.GeoIpCachePath(), env.Logger)
+	if err != nil {
+		slog.Infof("ipapi.QueryCached: %v", err)
+	}
+	if geo == nil {
+		geo = &ipapi.Result{}
+	}
+
+	return &Config{Setup: setup.DefaultConfig(dname.FromGeoip(geo))}
 }
 
 // FIXME[P2]: Should escape
@@ -102,13 +118,7 @@ func EnsureCA(env *action.Environment, cfg *Config, profile *storage.Profile, mo
 	}
 
 	if cfg == nil {
-		setupcfg, err := setup.DefaultConfig()
-		// setup.DefaultConfig errors are ignorable.
-		if err != nil {
-			slog.Debugf("Errors encountered while constructing default CA config: %v", err)
-		}
-
-		cfg = &Config{Setup: setupcfg}
+		cfg = DefaultConfig(env)
 	}
 
 	slog.Infof("Starting CA setup for %v.", profile)
@@ -148,20 +158,13 @@ var Command = &cli.Command{
 			return err
 		}
 
-		cfg := &Config{}
+		var cfg *Config
 		if c.Bool("dump-template") || !c.Bool("no-default") {
 			slog.Debugf("Constructing default config.")
-
-			setupcfg, err := setup.DefaultConfig()
-			// setup.DefaultConfig errors are ignorable.
-			if err != nil {
-				slog.Debugf("Errors encountered while constructing default config: %v", err)
-			}
-
-			cfg.Setup = setupcfg
+			cfg = DefaultConfig(env)
 		} else {
 			slog.Debugf("Config is from scratch.")
-			cfg.Setup = setup.EmptyConfig()
+			cfg = &Config{Setup: setup.EmptyConfig()}
 		}
 
 		if cfgbs, ok := c.App.Metadata["config"]; ok {

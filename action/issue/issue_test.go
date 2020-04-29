@@ -44,10 +44,7 @@ func testEnv(t *testing.T) (*action.Environment, func()) {
 	env, err := action.NewEnvironment(fe, stor)
 	env.Frontend = &frontend.NonInteractive{Logger: zap.L()}
 
-	cfg, err := setup.DefaultConfig()
-	if err != nil {
-		t.Fatalf("%v", err)
-	}
+	cfg := setup.DefaultConfig(nil)
 	if err := setup.Run(env, cfg); err != nil {
 		t.Fatalf("setup.Run: %v", err)
 	}
@@ -78,10 +75,8 @@ func TestIssue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
-	cfg, err := issue.DefaultConfig(nil)
-	if err != nil {
-		t.Fatalf("%v", err)
-	}
+
+	cfg := issue.DefaultConfig(nil)
 
 	certDer, err := issue.Run(env, pub, cfg)
 	if err != nil {

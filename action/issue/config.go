@@ -26,18 +26,14 @@ type Config struct {
 	NoIssueDBEntry bool
 }
 
-func DefaultConfig(baseSubject *dname.Config) (*Config, error) {
-	subject, err := dname.DefaultConfig("", baseSubject)
-	// dname.DefaultConfig error is ignorable
-
-	cfg := &Config{
-		Subject:  subject,
+func DefaultConfig(baseSubject *dname.Config) *Config {
+	return &Config{
+		Subject:  dname.DefaultConfig("", baseSubject),
 		Names:    san.ForThisHost(""),
 		KeyUsage: keyusage.KeyUsageTLSClientServer.Clone(),
 		Validity: period.ValidityPeriod{Days: 820},
 		KeyType:  wcrypto.KeyAny,
 	}
-	return cfg, err
 }
 
 func EmptyConfig() *Config {

@@ -38,10 +38,7 @@ func Ensure(env *action.Environment) (*storage.Profile, error) {
 		envS := env.Clone()
 		envS.ProfileName = ProfileName
 
-		cfg, err := setup.DefaultConfig()
-		if err != nil {
-			return nil, fmt.Errorf("setup.DefaultConfig: %w", err)
-		}
+		cfg := setup.DefaultConfig(nil)
 		cfg.Subject = &dname.Config{
 			CommonName: "kmgm serverauth CA",
 		}

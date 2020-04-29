@@ -24,39 +24,15 @@ type Config struct {
 	PostalCode    string `yaml:"postalCode" flags:"postal-code,set cert subject PostalCode"`
 }
 
-func DefaultConfig(cnsuffix string, basecfg *Config) (*Config, error) {
-	var merr error
-
-	hostname, err := os.Hostname()
-	if err != nil {
-		merr = multierr.Append(merr, err)
-		hostname = "unknownhost"
-	}
-
-	if basecfg != nil {
-		cfg := &Config{
-			CommonName:         hostname + cnsuffix,
-			Organization:       basecfg.Organization,
-			OrganizationalUnit: basecfg.OrganizationalUnit,
-			Country:            basecfg.Country,
-			Locality:           basecfg.Locality,
-			Province:           basecfg.Province,
-			StreetAddress:      basecfg.StreetAddress,
-			PostalCode:         basecfg.PostalCode,
-		}
-		return cfg, nil
-	}
-
+func FromGeoip(geo *ipapi.Result) *Config {
 	domainname, _ := domainname.DNSDomainname()
 
 	geo, err := ipapi.Query()
 	if err != nil {
-		merr = multierr.Append(merr, err)
 		geo = &ipapi.Result{}
 	}
 
-	cfg := &Config{
-		CommonName:         hostname + cnsuffix,
+	return &Config{
 		Organization:       domainname,
 		OrganizationalUnit: "",
 		Country:            geo.CountryCode,
@@ -65,7 +41,28 @@ func DefaultConfig(cnsuffix string, basecfg *Config) (*Config, error) {
 		StreetAddress:      "",
 		PostalCode:         "", // geo.Zip, but often not accurate enough
 	}
-	return cfg, merr
+}
+
+func DefaultConfig(cnsuffix string, basecfg *Config) *Config {
+	hostname, err := os.Hostname()
+	if err != nil {
+		hostname = "unknownhost"
+	}
+
+	if basecfg == nil {
+		basecfg = &Config{}
+	}
+
+	return &Config{
+		CommonName:         hostname + cnsuffix,
+		Organization:       basecfg.Organization,
+		OrganizationalUnit: basecfg.OrganizationalUnit,
+		Country:            basecfg.Country,
+		Locality:           basecfg.Locality,
+		Province:           basecfg.Province,
+		StreetAddress:      basecfg.StreetAddress,
+		PostalCode:         basecfg.PostalCode,
+	}
 }
 
 func (cfg *Config) ToPkixName() (n pkix.Name) {

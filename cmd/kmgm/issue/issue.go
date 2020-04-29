@@ -18,6 +18,7 @@ import (
 	"github.com/IPA-CyberLab/kmgm/dname"
 	"github.com/IPA-CyberLab/kmgm/frontend"
 	"github.com/IPA-CyberLab/kmgm/frontend/validate"
+	"github.com/IPA-CyberLab/kmgm/ipapi"
 	"github.com/IPA-CyberLab/kmgm/period"
 	"github.com/IPA-CyberLab/kmgm/storage"
 	"github.com/IPA-CyberLab/kmgm/structflags"
@@ -400,19 +401,26 @@ func ActionImpl(caSubjectFunc CASubjectFunc, issueFunc IssueFunc) func(*cli.Cont
 			return err
 		}
 
-		cfg := &Config{}
+		var cfg *Config
 		if c.Bool("dump-template") || !c.Bool("no-default") {
 			slog.Debugf("Constructing default config.")
 
-			issuecfg, err := issue.DefaultConfig(caSubjectFunc(env))
-			// issue.DefaultConfig errors are ignorable.
-			if err != nil && !c.Bool("dump-template") {
-				slog.Debugf("Errors encountered while constructing default config: %v", err)
+			baseSubject := caSubjectFunc(env)
+			if baseSubject == nil {
+				geo, err := ipapi.QueryCached(env.Storage.GeoIpCachePath(), env.Logger)
+				if err != nil {
+					slog.Infof("ipapi.QueryCached: %v", err)
+				}
+				if geo == nil {
+					geo = &ipapi.Result{}
+				}
+				baseSubject = dname.FromGeoip(geo)
 			}
-			cfg.Issue = issuecfg
+
+			cfg = &Config{Issue: issue.DefaultConfig(baseSubject)}
 		} else {
 			slog.Debugf("Config is from scratch.")
-			cfg.Issue = issue.EmptyConfig()
+			cfg = &Config{Issue: issue.EmptyConfig()}
 		}
 
 		if !c.Bool("dump-template") {

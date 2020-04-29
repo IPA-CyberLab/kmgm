@@ -266,13 +266,14 @@ func TestSetup_Flags(t *testing.T) {
 	_ = logs
 
 	s := readCASubject(t, basedir)
+	t.Logf("subj: %v", s)
 
 	if s.CommonName == "" {
 		t.Errorf("Expected non-empty CommonName, but got empty")
 	}
 
 	if s.Province[0] != "California" {
-		t.Errorf("Wront Province %+v", s.Province)
+		t.Errorf("Wrong Province %+v", s.Province)
 	}
 
 	if s.Country[0] != "JP" {

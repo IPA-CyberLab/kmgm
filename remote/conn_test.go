@@ -213,10 +213,7 @@ func TestServerClientCertAuth(t *testing.T) {
 		t.Fatalf("wcrypto.ExtractPublicKey: %v", err)
 	}
 
-	issueCfg, err := issue.DefaultConfig(nil)
-	if err != nil {
-		t.Fatalf("issue.DefaultConfig: %v", err)
-	}
+	issueCfg := issue.DefaultConfig(nil)
 	issueCfg.Subject = &dname.Config{
 		CommonName: "testClient",
 	}

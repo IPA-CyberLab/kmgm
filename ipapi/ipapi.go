@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+
+	"go.uber.org/zap"
 )
 
 type Result struct {
@@ -59,4 +61,49 @@ func Query() (*Result, error) {
 		return nil, fmt.Errorf("json.Unmarshal: %w", err)
 	}
 	return &result, nil
+}
+
+func tryReadCache(cachePath string) (*Result, error) {
+	bs, err := ioutil.ReadFile(cachePath)
+	if err != nil {
+		return nil, err
+	}
+
+	var result Result
+	if err := json.Unmarshal(bs, &result); err != nil {
+		return nil, fmt.Errorf("json.Unmarshal: %w", err)
+	}
+	return &result, nil
+}
+
+func QueryCached(cachePath string, l *zap.Logger) (*Result, error) {
+	s := l.Sugar()
+
+	if !EnableQuery {
+		return nil, ErrQueryDisabled
+	}
+
+	result, err := tryReadCache(cachePath)
+	if err == nil {
+		s.Debugf("Using cached geoip query result read from %q", cachePath)
+		return result, nil
+	}
+
+	result, err = Query()
+	if err != nil {
+		return result, err
+	}
+
+	bs, err := json.Marshal(result)
+	if err != nil {
+		s.Infof("Failed to marshal geoip cache content: %v", err)
+		return result, err
+	}
+
+	if err := ioutil.WriteFile(cachePath, bs, 0644); err != nil {
+		s.Infof("Failed to write geoip cache file %q: %v", cachePath, err)
+		return result, err
+	}
+
+	return result, nil
 }

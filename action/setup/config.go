@@ -21,15 +21,12 @@ type Config struct {
 	KeyType  wcrypto.KeyType       `yaml:"keyType" flags:"key-type,private key type (rsa&comma; ecdsa),t"`
 }
 
-func DefaultConfig() (*Config, error) {
-	subject, err := dname.DefaultConfig(" CA", nil)
-
-	cfg := &Config{
-		Subject:  subject,
+func DefaultConfig(baseSubject *dname.Config) *Config {
+	return &Config{
+		Subject:  dname.DefaultConfig(" CA", baseSubject),
 		KeyType:  wcrypto.KeyRSA4096,
 		Validity: period.FarFuture,
 	}
-	return cfg, err
 }
 
 func EmptyConfig() *Config {

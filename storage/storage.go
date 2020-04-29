@@ -39,6 +39,18 @@ func (s *Storage) ConnectionInfoPath() string {
 	return filepath.Join(s.BaseDir, "connection_info.yaml")
 }
 
+func (s *Storage) mkdirIfNeeded() error {
+	if err := os.MkdirAll(s.BaseDir, 0755); err != nil {
+		return fmt.Errorf("os.MkdirAll(%q): %w", s.BaseDir, err)
+	}
+	return nil
+}
+
+func (s *Storage) GeoIpCachePath() string {
+	_ = s.mkdirIfNeeded()
+	return filepath.Join(s.BaseDir, "geoip_cache.yaml")
+}
+
 type Profile struct {
 	BaseDir string
 }
