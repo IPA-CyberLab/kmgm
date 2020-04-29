@@ -110,7 +110,11 @@ func NewApp() *cli.App {
 			cfg.DisableCaller = !c.Bool("log-location")
 			if !c.Bool("log-json") {
 				cfg.Encoding = "console"
-				cfg.EncoderConfig.EncodeTime = SimpleTimeEncoder
+				if c.Args().First() == "serve" {
+					cfg.EncoderConfig.EncodeTime = SimpleTimeEncoder
+				} else {
+					cfg.EncoderConfig.TimeKey = ""
+				}
 				cfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 			}
 			if c.Bool("verbose") {
