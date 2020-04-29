@@ -99,6 +99,10 @@ func (fe Frontend) EditText(beforeEdit string, validator func(string) (string, e
 	return beforeEdit, nil
 }
 
+func myBlockCursor(input []rune) []rune {
+	return []rune(fmt.Sprintf("\033[7m%s\033[0m", string(input)))
+}
+
 func (fe Frontend) Configure(items []frontend.ConfigItem) error {
 	for _, i := range items {
 		var err error
@@ -108,6 +112,7 @@ func (fe Frontend) Configure(items []frontend.ConfigItem) error {
 			Default:   *i.Value,
 			Templates: PromptTemplate,
 			AllowEdit: true,
+			Pointer:   myBlockCursor,
 		}
 		*i.Value, err = p.Run()
 		if err != nil {
