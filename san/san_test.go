@@ -51,7 +51,10 @@ func TestPunycode(t *testing.T) {
 }
 
 func TestForThisHost_IPAddr(t *testing.T) {
-	ns := san.ForThisHost("192.168.0.100:12345")
+	ns, err := san.ForListenAddr("192.168.0.100:12345")
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
 	if len(ns.IPAddrs) != 1 {
 		t.Fatalf("unexpected len: %d", len(ns.IPAddrs))
 	}
@@ -62,28 +65,22 @@ func TestForThisHost_IPAddr(t *testing.T) {
 }
 
 func TestForThisHost_0000(t *testing.T) {
-	ns := san.ForThisHost("0.0.0.0:12345")
-	if len(ns.IPAddrs) == 0 {
-		t.Fatalf("unexpected len: %d", len(ns.IPAddrs))
+	ns, err := san.ForListenAddr("0.0.0.0:12345")
+	if err != nil {
+		t.Fatalf("%v", err)
 	}
-	inv := net.ParseIP("192.168.0.100")
-	for _, ip := range ns.IPAddrs {
-		if ip.Equal(inv) {
-			t.Fatalf("unexpected ip: %v", ip)
-		}
+	if len(ns.IPAddrs) != 0 {
+		t.Fatalf("unexpected len: %d", len(ns.IPAddrs))
 	}
 }
 
 func TestForThisHost_Empty(t *testing.T) {
-	ns := san.ForThisHost(":12345")
-	if len(ns.IPAddrs) == 0 {
-		t.Fatalf("unexpected len: %d", len(ns.IPAddrs))
+	ns, err := san.ForListenAddr(":12345")
+	if err != nil {
+		t.Fatalf("%v", err)
 	}
-	inv := net.ParseIP("192.168.0.100")
-	for _, ip := range ns.IPAddrs {
-		if ip.Equal(inv) {
-			t.Fatalf("unexpected ip: %v", ip)
-		}
+	if len(ns.IPAddrs) != 0 {
+		t.Fatalf("unexpected len: %d", len(ns.IPAddrs))
 	}
 }
 

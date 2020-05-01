@@ -126,6 +126,30 @@ func (ns *Names) Add(s string) error {
 	return nil
 }
 
+func (a *Names) Concat(b Names) {
+outerL:
+	for _, bdnsn := range b.DNSNames {
+		for _, adnsn := range a.DNSNames {
+			if adnsn == bdnsn {
+				continue outerL
+			}
+		}
+
+		a.DNSNames = append(a.DNSNames, bdnsn)
+	}
+
+outerL2:
+	for _, bipaddr := range b.IPAddrs {
+		for _, aipaddr := range a.IPAddrs {
+			if aipaddr.Equal(bipaddr) {
+				continue outerL2
+			}
+		}
+
+		a.IPAddrs = append(a.IPAddrs, bipaddr)
+	}
+}
+
 func Parse(s string) (ns Names, err error) {
 	ss := strings.Split(s, ",")
 	for _, s := range ss {
@@ -169,28 +193,15 @@ func FromCertificate(cert *x509.Certificate) Names {
 	}
 }
 
-// FIXME[P2]: should be ForThisListenAddr
-// FIXME[P2]: Split. ns := ForThisHost, ns2 := FromListenAddr, ns = ns.Merge(ns2)
-func ForThisHost(listenAddr string) (ns Names) {
-	if host, _, err := net.SplitHostPort(listenAddr); err == nil {
-		if ipaddr := net.ParseIP(host); ipaddr != nil {
-			if !ipaddr.IsUnspecified() {
-				ns.IPAddrs = append(ns.IPAddrs, ipaddr)
-			}
-		} else {
-			_ = ns.Add(host)
-		}
-	}
-	if len(ns.IPAddrs) == 0 {
-		if addrs, err := net.InterfaceAddrs(); err == nil {
-			for _, addr := range addrs {
-				if ipaddr, ok := addr.(*net.IPNet); ok {
-					ip := ipaddr.IP
-					if ip.IsLinkLocalUnicast() || ip.IsLoopback() {
-						continue
-					}
-					ns.IPAddrs = append(ns.IPAddrs, ip)
+func ForThisHost() (ns Names) {
+	if addrs, err := net.InterfaceAddrs(); err == nil {
+		for _, addr := range addrs {
+			if ipaddr, ok := addr.(*net.IPNet); ok {
+				ip := ipaddr.IP
+				if ip.IsLinkLocalUnicast() || ip.IsLoopback() {
+					continue
 				}
+				ns.IPAddrs = append(ns.IPAddrs, ip)
 			}
 		}
 	}
@@ -204,6 +215,23 @@ func ForThisHost(listenAddr string) (ns Names) {
 	}
 
 	return
+}
+
+func ForListenAddr(listenAddr string) (Names, error) {
+	host, _, err := net.SplitHostPort(listenAddr)
+	if err != nil {
+		return Names{}, err
+	}
+
+	var ns Names
+	if ipaddr := net.ParseIP(host); ipaddr != nil {
+		if !ipaddr.IsUnspecified() {
+			ns.IPAddrs = append(ns.IPAddrs, ipaddr)
+		}
+	} else {
+		_ = ns.Add(host)
+	}
+	return ns, nil
 }
 
 func (p *Names) UnmarshalFlag(s string) error {

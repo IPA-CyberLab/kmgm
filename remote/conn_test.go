@@ -217,7 +217,10 @@ func TestServerClientCertAuth(t *testing.T) {
 	issueCfg.Subject = &dname.Config{
 		CommonName: "testClient",
 	}
-	issueCfg.Names = san.ForThisHost("localhost:12345")
+	issueCfg.Names, err = san.ForListenAddr("localhost:12345")
+	if err != nil {
+		t.Fatalf("ForListenAddr: %v", err)
+	}
 	issueCfg.KeyUsage = keyusage.KeyUsageTLSClient.Clone()
 	issueCfg.KeyType = wcrypto.ServerKeyType
 

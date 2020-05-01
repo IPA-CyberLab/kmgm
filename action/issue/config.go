@@ -4,6 +4,8 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"log"
+	"os"
 	"time"
 
 	"go.uber.org/multierr"
@@ -27,9 +29,22 @@ type Config struct {
 }
 
 func DefaultConfig(baseSubject *dname.Config) *Config {
+	var ns san.Names
+
+	override := os.Getenv("KMGM_DEFAULT_NAMES")
+	if override != "" {
+		var err error
+		ns, err = san.Parse(override)
+		if err != nil {
+			log.Panicf("Failed to parse KMGM_DEFAULT_NAMES %q: %v", override, err)
+		}
+	} else {
+		ns = san.ForThisHost()
+	}
+
 	return &Config{
 		Subject:  dname.DefaultConfig("", baseSubject),
-		Names:    san.ForThisHost(""),
+		Names:    ns,
 		KeyUsage: keyusage.KeyUsageTLSClientServer.Clone(),
 		Validity: period.ValidityPeriod{Days: 820},
 		KeyType:  wcrypto.KeyAny,

@@ -122,7 +122,14 @@ func StartServer(ctx context.Context, env *action.Environment, cfg *Config) (*Se
 	slog := env.Logger.Sugar()
 
 	if cfg.Names.Empty() {
-		cfg.Names = san.ForThisHost(cfg.ListenAddr)
+		ns, err := san.ForListenAddr(cfg.ListenAddr)
+		if err != nil {
+			slog.Warnf("Failed to construct subjectAltNames for listenAddr %q: %v", cfg.ListenAddr, err)
+		}
+
+		ns.Concat(san.ForThisHost())
+
+		cfg.Names = ns
 	}
 
 	authp, err := authprofile.Ensure(env)
