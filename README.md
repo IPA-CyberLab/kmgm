@@ -6,6 +6,8 @@
 
 kmgm is a [certificate authority](https://en.wikipedia.org/wiki/Certificate_authority) with focus on its ease of use. Setup certificates and deploy to your cluster in minutes!
 
+![demo session][demo-session-svg]
+
 ## Installation
 
 Linux:
@@ -37,3 +39,4 @@ kmgm is licensed under Apache license version 2.0. See [LICENSE](https://github.
 [go-report]: https://goreportcard.com/report/github.com/IPA-CyberLab/kmgm
 [gh-actions-badge]: https://github.com/IPA-CyberLab/kmgm/workflows/Test%20and%20Release/badge.svg
 [gh-actions]: https://github.com/IPA-CyberLab/kmgm/actions
+[demo-session-svg]: https://raw.githubusercontent.com/IPA-CyberLab/kmgm/master/docs/demo.svg
