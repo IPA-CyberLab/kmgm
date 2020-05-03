@@ -48,7 +48,7 @@ func (s *Storage) mkdirIfNeeded() error {
 
 func (s *Storage) GeoIpCachePath() string {
 	_ = s.mkdirIfNeeded()
-	return filepath.Join(s.BaseDir, "geoip_cache.yaml")
+	return filepath.Join(s.BaseDir, "geoip_cache.json")
 }
 
 type Profile struct {

@@ -1,0 +1,14 @@
+export LANG=en_US.UTF-8
+export HOSTNAME=demohost
+
+PS1="$ "
+
+export PATH="$(pwd)/../..:$PATH"
+
+rm -rf /tmp/kmgmdemo
+export KMGMDIR=/tmp/kmgmdemo/.config/kmgm
+mkdir -p $KMGMDIR
+echo '{"city":"Bunkyo","country":"Japan","countryCode":"JP","regionName":"Tokyo","timezone":"Asia/Tokyo"}' > $KMGMDIR/geoip_cache.json
+
+export KMGM_DEFAULT_NAMES="demohost,demohost.example,192.168.0.10"
+cd /tmp/kmgmdemo
