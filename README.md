@@ -12,6 +12,14 @@ kmgm is a [certificate authority](https://en.wikipedia.org/wiki/Certificate_auth
 
 Linux:
 
+Install a pre-built binary:
+
+```sh
+VER=0.1.0; curl -vL https://github.com/IPA-CyberLab/kmgm/releases/download/v${VER}/kmgm_${VER}_Linux_x86_64.tar.gz | tar zx -C /usr/local/bin kmgm
+```
+
+or, to build it yourself:
+
 ```sh
 go get -v -u github.com/IPA-CyberLab/kmgm/cmd/... 
 ```
