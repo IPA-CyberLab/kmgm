@@ -53,7 +53,6 @@ func VerifyDNSNameEntry(s string) error {
 	return nil
 }
 
-// FIXME[P1]: IP addrs in SAN is not a single IP addr, but range.
 type Names struct {
 	DNSNames []string
 	IPAddrs  []net.IP
