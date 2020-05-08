@@ -16,7 +16,7 @@ import (
 
 const dateFormat = "06/01/02"
 
-func certInfo(pem []byte) string {
+func CertInfo(pem []byte) string {
 	if len(pem) == 0 {
 		return "PEM not found in DB entry"
 	}
@@ -81,7 +81,8 @@ var Command = &cli.Command{
 		}
 
 		now := env.NowImpl()
-		if st := profile.Status(now); st != nil {
+		st := profile.Status(now)
+		if st.Code != storage.ValidCA {
 			if st.Code == storage.Expired {
 				slog.Warnf("Expired %s")
 			} else {
@@ -106,7 +107,7 @@ var Command = &cli.Command{
 		fmt.Printf("                             YY/MM/DD YY/MM/DD\n")
 		fmt.Printf("Status   SerialNumber        NotBefor NotAfter Subject\n")
 		for _, e := range es {
-			infotxt := certInfo([]byte(e.CertificatePEM))
+			infotxt := CertInfo([]byte(e.CertificatePEM))
 
 			switch e.State {
 			case issuedb.IssueInProgress:

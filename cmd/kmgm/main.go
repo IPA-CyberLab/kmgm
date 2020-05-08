@@ -19,6 +19,7 @@ import (
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/remote"
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/serve"
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/setup"
+	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/show"
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/tool"
 	"github.com/IPA-CyberLab/kmgm/frontend"
 	"github.com/IPA-CyberLab/kmgm/frontend/promptuife"
@@ -29,6 +30,18 @@ import (
 
 func SimpleTimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 	enc.AppendString(t.Format("15:04:05.999"))
+}
+
+func resolveCmd(c *cli.Context) *cli.Command {
+	app := c.App
+
+	args := c.Args()
+	if !args.Present() {
+		return nil
+	}
+
+	name := args.First()
+	return app.Command(name)
 }
 
 func NewApp() *cli.App {
@@ -96,8 +109,11 @@ func NewApp() *cli.App {
 		remote.Command,
 		serve.Command,
 		tool.Command,
+		show.Command,
 	}
 	BeforeImpl := func(c *cli.Context) error {
+		cmd := resolveCmd(c)
+
 		if c.Bool("no-geoip") {
 			ipapi.EnableQuery = false
 		}
@@ -110,18 +126,21 @@ func NewApp() *cli.App {
 			cfg.DisableCaller = !c.Bool("log-location")
 			if !c.Bool("log-json") {
 				cfg.Encoding = "console"
-				if c.Args().First() == "serve" {
+				switch cmd {
+				case serve.Command:
 					cfg.EncoderConfig.EncodeTime = SimpleTimeEncoder
-				} else {
+				default:
 					cfg.EncoderConfig.TimeKey = ""
 				}
+
 				cfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 			}
 			if c.Bool("verbose") {
 				cfg.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
 			}
 
-			logger, err = cfg.Build()
+			logger, err = cfg.Build(
+				zap.AddStacktrace(zap.NewAtomicLevelAt(zap.DPanicLevel)))
 			if err != nil {
 				return err
 			}
