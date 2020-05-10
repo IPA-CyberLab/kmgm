@@ -141,6 +141,12 @@ var Command = &cli.Command{
 			Usage:   "Output format. (full, pem)",
 			Value:   "full",
 		},
+		&cli.StringFlag{
+			Name:    "file",
+			Aliases: []string{"f"},
+			Usage:   "Write output to specified file.",
+			Value:   "-",
+		},
 	},
 	Action: func(c *cli.Context) error {
 		env := action.GlobalEnvironment
@@ -184,7 +190,22 @@ var Command = &cli.Command{
 			return err
 		}
 
-		PrintCertInfo(os.Stdout, cert, fmt)
+		var w io.Writer
+		outfilestr := c.String("file")
+		if outfilestr == "-" {
+			w = os.Stdout
+		} else {
+			wf, err := NewIfChangedWriteFile(outfilestr)
+			if err != nil {
+				wf.Close()
+				return err
+			}
+			defer wf.Close()
+
+			w = wf
+		}
+
+		PrintCertInfo(w, cert, fmt)
 
 		return nil
 	},
