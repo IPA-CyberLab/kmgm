@@ -41,44 +41,47 @@ func HexStr(bs []byte) string {
 	return buf.String()
 }
 
-func PrintCertInfo(w io.Writer, cacert *x509.Certificate) {
-	fmt.Fprint(w, promptui.Styler(promptui.FGBold)("=== Certificate Info ==="))
-	pubkeyhash, err := wcrypto.PubKeyPinString(cacert.PublicKey)
-	if err != nil {
-		pubkeyhash = fmt.Sprintf("Failed to compute public key hash: %s", err)
+func PrintCertInfo(w io.Writer, cacert *x509.Certificate, ft FormatType) {
+	if ft.ShouldOutputInfo() {
+		fmt.Fprint(w, promptui.Styler(promptui.FGBold)("=== Certificate Info ==="))
+		pubkeyhash, err := wcrypto.PubKeyPinString(cacert.PublicKey)
+		if err != nil {
+			pubkeyhash = fmt.Sprintf("Failed to compute public key hash: %s", err)
+		}
+
+		// FIXME[P2]: KeyUsage / Extensions info
+		fmt.Fprintf(w, `
+  SerialNumber: %s
+  Subject: %s
+  Validity:
+    NotBefore: %s
+    NotAfter:  %s
+  PublicKey:
+    Algorithm: %s
+    Hash: %s
+    SubjectKeyId: %s
+  Issuer: %s
+    AuthorityKeyId: %s
+  SignatureAlgorithm: %s
+
+  `,
+			cacert.SerialNumber,
+			cacert.Subject,
+			cacert.NotBefore.Format(time.RFC3339),
+			cacert.NotAfter.Format(time.RFC3339),
+			cacert.PublicKeyAlgorithm,
+			pubkeyhash,
+			HexStr(cacert.SubjectKeyId),
+			cacert.Issuer,
+			HexStr(cacert.AuthorityKeyId),
+			cacert.SignatureAlgorithm,
+		)
+		fmt.Fprint(w, "PEM (use `kmgm show -o pem` to show pem only):\n")
 	}
-
-	// FIXME[P2]: KeyUsage / Extensions info
-	fmt.Fprintf(w, `
-SerialNumber: %s
-Subject: %s
-Validity:
-  NotBefore: %s
-  NotAfter:  %s
-PublicKey:
-  Algorithm: %s
-  Hash: %s
-  SubjectKeyId: %s
-Issuer: %s
-  AuthorityKeyId: %s
-SignatureAlgorithm: %s
-
-`,
-		cacert.SerialNumber,
-		cacert.Subject,
-		cacert.NotBefore.Format(time.RFC3339),
-		cacert.NotAfter.Format(time.RFC3339),
-		cacert.PublicKeyAlgorithm,
-		pubkeyhash,
-		HexStr(cacert.SubjectKeyId),
-		cacert.Issuer,
-		HexStr(cacert.AuthorityKeyId),
-		cacert.SignatureAlgorithm,
-	)
-	fmt.Fprint(w, "PEM (use `kmgm show -o pem` to show pem only):\n")
-
-	bs := pemparser.MarshalCertificateDer(cacert.Raw)
-	w.Write(bs)
+	if ft.ShouldOutputPEM() {
+		bs := pemparser.MarshalCertificateDer(cacert.Raw)
+		w.Write(bs)
+	}
 }
 
 func FindCertificateWithPrefix(randr io.Reader, profile *storage.Profile, prefix string) (*x509.Certificate, error) {
@@ -175,8 +178,13 @@ var Command = &cli.Command{
 			}
 		}
 
-		// FIXME[P0]: read c.String("output")
-		PrintCertInfo(os.Stdout, cert)
+		fmtstr := c.String("output")
+		fmt, err := FormatTypeFromString(fmtstr)
+		if err != nil {
+			return err
+		}
+
+		PrintCertInfo(os.Stdout, cert, fmt)
 
 		return nil
 	},
