@@ -27,6 +27,10 @@ func IssueCertificate(ctx context.Context, env *action.Environment, pub crypto.P
 		return nil, err
 	}
 
+	if err := env.EnsureClientConn(ctx); err != nil {
+		return nil, err
+	}
+
 	sc := pb.NewCertificateServiceClient(env.ClientConn)
 
 	slog.Info("Requesting certificate...")

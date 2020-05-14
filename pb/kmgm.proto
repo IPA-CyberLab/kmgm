@@ -1,6 +1,6 @@
 syntax = "proto3";
 package kmgm;
-option go_package = "pb";
+option go_package = ".;pb";
 
 enum AuthenticationType {
   UNSPECIFIED = 0;
@@ -69,6 +69,16 @@ message IssueCertificateResponse {
   bytes certificate = 1;
 }
 
+message GetCertificateRequest {
+  string profile = 1;
+  int64 serial_number = 2;
+}
+
+message GetCertificateResponse {
+  bytes certificate = 1;
+}
+
 service CertificateService {
   rpc IssueCertificate(IssueCertificateRequest) returns (IssueCertificateResponse);
+  rpc GetCertificate(GetCertificateRequest) returns (GetCertificateResponse);
 }

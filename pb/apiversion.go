@@ -1,3 +1,3 @@
 package pb
 
-const ApiVersion = 1
+const ApiVersion = 2

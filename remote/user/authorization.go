@@ -12,3 +12,7 @@ func (u User) IsAllowedToIssueCertificate(profileName string) bool {
 	}
 	return u.Type == pb.AuthenticationType_CLIENT_CERT
 }
+
+func (u User) IsAllowedToGetCertificate() bool {
+	return u.Type == pb.AuthenticationType_CLIENT_CERT
+}

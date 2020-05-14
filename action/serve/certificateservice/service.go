@@ -11,11 +11,13 @@ import (
 	"github.com/IPA-CyberLab/kmgm/action"
 	"github.com/IPA-CyberLab/kmgm/action/issue"
 	"github.com/IPA-CyberLab/kmgm/dname"
-	"github.com/IPA-CyberLab/kmgm/period"
 	"github.com/IPA-CyberLab/kmgm/keyusage"
 	"github.com/IPA-CyberLab/kmgm/pb"
+	"github.com/IPA-CyberLab/kmgm/pemparser"
+	"github.com/IPA-CyberLab/kmgm/period"
 	"github.com/IPA-CyberLab/kmgm/remote/user"
 	"github.com/IPA-CyberLab/kmgm/san"
+	"github.com/IPA-CyberLab/kmgm/storage/issuedb"
 )
 
 type Service struct {
@@ -63,4 +65,47 @@ func (svc *Service) IssueCertificate(ctx context.Context, req *pb.IssueCertifica
 	return &pb.IssueCertificateResponse{
 		Certificate: certDer,
 	}, nil
+}
+
+func (svc *Service) GetCertificate(ctx context.Context, req *pb.GetCertificateRequest) (*pb.GetCertificateResponse, error) {
+	u := user.FromContext(ctx)
+	if !u.IsAllowedToGetCertificate() {
+		return nil, grpc.Errorf(codes.Unauthenticated, "%v is not allowed to get certificate.", u)
+	}
+	env := svc.env
+
+	profile, err := env.Storage.Profile(req.Profile)
+	if err != nil {
+		return nil, grpc.Errorf(codes.Internal, "%v", err)
+	}
+
+	if req.SerialNumber == 0 {
+		cacert, err := profile.ReadCACertificate()
+		if err != nil {
+			return nil, grpc.Errorf(codes.Internal, "%v", err)
+		}
+
+		return &pb.GetCertificateResponse{Certificate: cacert.Raw}, nil
+	}
+
+	db, err := issuedb.New(env.Randr, profile.IssueDBPath())
+	if err != nil {
+		return nil, grpc.Errorf(codes.Internal, "%v", err)
+	}
+
+	e, err := db.Query(req.SerialNumber)
+	if err != nil {
+		return nil, grpc.Errorf(codes.Internal, "%v", err)
+	}
+
+	cs, err := pemparser.ParseCertificates([]byte(e.CertificatePEM))
+	if err != nil {
+		return nil, grpc.Errorf(codes.Internal, "%v", err)
+	}
+	if len(cs) != 1 {
+		return nil, grpc.Errorf(codes.Internal, "multiple certificates unexpected", err)
+	}
+	c := cs[0]
+
+	return &pb.GetCertificateResponse{Certificate: c.Raw}, nil
 }

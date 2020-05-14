@@ -2,6 +2,7 @@ package show
 
 import (
 	"bytes"
+	"context"
 	"crypto/x509"
 	"fmt"
 	"io"
@@ -84,8 +85,31 @@ func PrintCertInfo(w io.Writer, cacert *x509.Certificate, ft FormatType) {
 	}
 }
 
-func FindCertificateWithPrefix(randr io.Reader, profile *storage.Profile, prefix string) (*x509.Certificate, error) {
-	db, err := issuedb.New(randr, profile.IssueDBPath())
+type FindCertificateWithPrefixType func(ctx context.Context, env *action.Environment, prefix string) (*x509.Certificate, error)
+
+func FindCertificateWithPrefix(ctx context.Context, env *action.Environment, prefix string) (*x509.Certificate, error) {
+	slog := env.Logger.Sugar()
+
+	profile, err := env.Profile()
+	if err != nil {
+		return nil, err
+	}
+
+	now := env.NowImpl()
+	st := profile.Status(now)
+	if st.Code != storage.ValidCA {
+		if st.Code == storage.Expired {
+			slog.Warnf("Expired %s")
+		} else {
+			return nil, fmt.Errorf("Could not find a valid CA profile %q: %v", env.ProfileName, st)
+		}
+	}
+
+	if prefix == "ca" {
+		return st.CACert, nil
+	}
+
+	db, err := issuedb.New(env.Randr, profile.IssueDBPath())
 	if err != nil {
 		return nil, err
 	}
@@ -129,44 +153,10 @@ func FindCertificateWithPrefix(randr io.Reader, profile *storage.Profile, prefix
 	}
 }
 
-var Command = &cli.Command{
-	Name:  "show",
-	Usage: "Show CA status, an existing certificate and/or its key.",
-	UsageText: `kmgm show ca                --- Show the CA certificate.
-   kmgm show [serialprefix]    --- Show certificate which has a serial number starting from given prefix.`,
-	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name:    "output",
-			Aliases: []string{"o"},
-			Usage:   "Output format. (full, pem)",
-			Value:   "full",
-		},
-		&cli.StringFlag{
-			Name:    "file",
-			Aliases: []string{"f"},
-			Usage:   "Write output to specified file.",
-			Value:   "-",
-		},
-	},
-	Action: func(c *cli.Context) error {
+func ActionImpl(findCertificateWithPrefixImpl FindCertificateWithPrefixType) func(*cli.Context) error {
+	return func(c *cli.Context) error {
 		env := action.GlobalEnvironment
 		slog := env.Logger.Sugar()
-
-		profile, err := env.Profile()
-		if err != nil {
-			return err
-		}
-
-		now := env.NowImpl()
-		st := profile.Status(now)
-		if st.Code != storage.ValidCA {
-			if st.Code == storage.Expired {
-				slog.Warnf("Expired %s")
-			} else {
-				slog.Infof("Could not find a valid CA profile %q: %v", env.ProfileName, st)
-				return nil
-			}
-		}
 
 		if c.Args().Len() != 1 {
 			slog.Error("Unexpected number of commandline arguments.")
@@ -174,18 +164,13 @@ var Command = &cli.Command{
 		}
 		prefix := c.Args().First()
 
-		var cert *x509.Certificate
-		if prefix == "ca" {
-			cert = st.CACert
-		} else {
-			cert, err = FindCertificateWithPrefix(env.Randr, profile, prefix)
-			if err != nil {
-				return err
-			}
-		}
-
 		fmtstr := c.String("output")
 		fmt, err := FormatTypeFromString(fmtstr)
+		if err != nil {
+			return err
+		}
+
+		cert, err := findCertificateWithPrefixImpl(c.Context, env, prefix)
 		if err != nil {
 			return err
 		}
@@ -208,5 +193,27 @@ var Command = &cli.Command{
 		PrintCertInfo(w, cert, fmt)
 
 		return nil
+	}
+}
+
+var Command = &cli.Command{
+	Name:  "show",
+	Usage: "Show CA status, an existing certificate and/or its key.",
+	UsageText: `kmgm show ca                --- Show the CA certificate.
+   kmgm show [serialprefix]    --- Show certificate which has a serial number starting from given prefix.`,
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:    "output",
+			Aliases: []string{"o"},
+			Usage:   "Output format. (full, pem)",
+			Value:   "full",
+		},
+		&cli.StringFlag{
+			Name:    "file",
+			Aliases: []string{"f"},
+			Usage:   "Write output to specified file.",
+			Value:   "-",
+		},
 	},
+	Action: ActionImpl(FindCertificateWithPrefix),
 }

@@ -6,6 +6,7 @@ import (
 	action "github.com/IPA-CyberLab/kmgm/action"
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/remote/bootstrap"
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/remote/issue"
+	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/remote/show"
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/remote/version"
 	"github.com/IPA-CyberLab/kmgm/remote"
 	"github.com/IPA-CyberLab/kmgm/structflags"
@@ -31,5 +32,6 @@ var Command = &cli.Command{
 		bootstrap.Command,
 		issue.Command,
 		version.Command,
+		show.Command,
 	},
 }

@@ -15,6 +15,8 @@ func remoteCASubject(env *action.Environment) *dname.Config {
 	return nil
 }
 
+// FIXME[P1]: Establish server conn earlier to catch server error earlier.
+
 var Command = &cli.Command{
 	Name:   "issue",
 	Usage:  "Issue a new certificate or renew an existing certificate. Generates private key if needed.",
