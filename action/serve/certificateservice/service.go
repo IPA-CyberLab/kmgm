@@ -103,7 +103,7 @@ func (svc *Service) GetCertificate(ctx context.Context, req *pb.GetCertificateRe
 		return nil, grpc.Errorf(codes.Internal, "%v", err)
 	}
 	if len(cs) != 1 {
-		return nil, grpc.Errorf(codes.Internal, "multiple certificates unexpected", err)
+		return nil, grpc.Errorf(codes.Internal, "multiple certificates unexpected: %v", err)
 	}
 	c := cs[0]
 

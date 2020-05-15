@@ -530,7 +530,7 @@ noDefault: true
 `, certPath, privPath))
 
 	logs, err := runKmgm(t, context.Background(), basedir, yaml, []string{"issue"}, nowDefault)
-	expectErr(t, err, issue.UnexpectedKeyTypeErr{})
+	expectErr(t, err, wcrypto.UnexpectedKeyTypeErr{})
 	_ = logs
 }
 

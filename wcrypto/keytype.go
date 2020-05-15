@@ -70,12 +70,26 @@ func KeyTypeOfPub(pub crypto.PublicKey) (KeyType, error) {
 	}
 }
 
-func (a KeyType) CompatibleWith(b KeyType) error {
-	if a == KeyAny {
+type UnexpectedKeyTypeErr struct {
+	Expected KeyType
+	Actual   KeyType
+}
+
+func (e UnexpectedKeyTypeErr) Error() string {
+	return fmt.Sprintf("Expected key type of %s but specified key %s", e.Expected, e.Actual)
+}
+
+func (UnexpectedKeyTypeErr) Is(target error) bool {
+	_, ok := target.(UnexpectedKeyTypeErr)
+	return ok
+}
+
+func (expected KeyType) CompatibleWith(actual KeyType) error {
+	if expected == KeyAny {
 		return nil
 	}
-	if a != b {
-		return fmt.Errorf("KeyType mismatch: %v != %v", a, b)
+	if expected != actual {
+		return UnexpectedKeyTypeErr{Expected: expected, Actual: actual}
 	}
 	return nil
 }

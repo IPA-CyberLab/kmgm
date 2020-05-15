@@ -69,8 +69,8 @@ func PrepareKeyTypePath(env *action.Environment, ktype *wcrypto.KeyType, privPat
 		}
 		slog.Infof("Successfully read private key of type %v", extractType)
 
-		if *ktype != wcrypto.KeyAny && *ktype != extractType {
-			return UnexpectedKeyTypeErr{Expected: *ktype, Actual: extractType}
+		if err := ktype.CompatibleWith(extractType); err != nil {
+			return err
 		}
 		*ktype = extractType
 		return nil
@@ -109,8 +109,8 @@ func EnsurePrivateKey(env *action.Environment, ktype wcrypto.KeyType, privPath s
 		}
 		slog.Infof("Successfully read private key of type %v", extractType)
 
-		if ktype != wcrypto.KeyAny && ktype != extractType {
-			return nil, UnexpectedKeyTypeErr{Expected: ktype, Actual: extractType}
+		if err := ktype.CompatibleWith(extractType); err != nil {
+			return nil, err
 		}
 		return priv, nil
 	}
@@ -254,20 +254,6 @@ type Config struct {
 	XXX_NoDefault bool `yaml:"noDefault"`
 }
 
-type UnexpectedKeyTypeErr struct {
-	Expected wcrypto.KeyType
-	Actual   wcrypto.KeyType
-}
-
-func (e UnexpectedKeyTypeErr) Error() string {
-	return fmt.Sprintf("Expected key type of %s but specified key %s", e.Expected, e.Actual)
-}
-
-func (UnexpectedKeyTypeErr) Is(target error) bool {
-	_, ok := target.(UnexpectedKeyTypeErr)
-	return ok
-}
-
 func VerifyKeyType(path string, expected wcrypto.KeyType) (crypto.PublicKey, error) {
 	priv, err := storage.ReadPrivateKeyFile(path)
 	if errors.Is(err, os.ErrNotExist) {
@@ -287,8 +273,8 @@ func VerifyKeyType(path string, expected wcrypto.KeyType) (crypto.PublicKey, err
 		return nil, err
 	}
 
-	if expected != wcrypto.KeyAny && ktype != expected {
-		return nil, fmt.Errorf("Existing key %q: %w", path, UnexpectedKeyTypeErr{Expected: expected, Actual: ktype})
+	if err := expected.CompatibleWith(ktype); err != nil {
+		return nil, fmt.Errorf("Existing key %q: %w", path, err)
 	}
 
 	return pub, nil
