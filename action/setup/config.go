@@ -19,6 +19,8 @@ type Config struct {
 	Subject  *dname.Config         `yaml:"subject" flags:""`
 	Validity period.ValidityPeriod `yaml:"validity" flags:"validity,time duration/timestamp where the cert is valid to (examples: 30d&comma; 1y&comma; 20220530)"`
 	KeyType  wcrypto.KeyType       `yaml:"keyType" flags:"key-type,private key type (rsa&comma; ecdsa),t"`
+
+	PermittedDNSDomains []string `yaml:"permittedDNSDomains"`
 }
 
 func DefaultConfig(baseSubject *dname.Config) *Config {

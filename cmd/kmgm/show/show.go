@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/x509"
+	"encoding/asn1"
 	"fmt"
 	"io"
 	"os"
@@ -42,45 +43,121 @@ func HexStr(bs []byte) string {
 	return buf.String()
 }
 
-func PrintCertInfo(w io.Writer, cacert *x509.Certificate, ft FormatType) {
+var oidsHandled = []asn1.ObjectIdentifier{
+	{2, 5, 29, 35}, // AuthorityKeyId
+}
+var oidKeyUsage = asn1.ObjectIdentifier{2, 5, 29, 15}
+var oidSubjectAltName = asn1.ObjectIdentifier{2, 5, 29, 17}
+var oidNameConstraints = asn1.ObjectIdentifier{2, 5, 29, 30}
+var oidExtKeyUsage = asn1.ObjectIdentifier{2, 5, 29, 37}
+var oidBasicConstraints = asn1.ObjectIdentifier{2, 5, 29, 19}
+
+func PrintCertInfo(w io.Writer, cert *x509.Certificate, ft FormatType) {
 	if ft.ShouldOutputInfo() {
 		fmt.Fprint(w, promptui.Styler(promptui.FGBold)("=== Certificate Info ==="))
-		pubkeyhash, err := wcrypto.PubKeyPinString(cacert.PublicKey)
+		pubkeyhash, err := wcrypto.PubKeyPinString(cert.PublicKey)
 		if err != nil {
 			pubkeyhash = fmt.Sprintf("Failed to compute public key hash: %s", err)
 		}
 
 		// FIXME[P2]: KeyUsage / Extensions info
 		fmt.Fprintf(w, `
-  SerialNumber: %s
-  Subject: %s
-  Validity:
-    NotBefore: %s
-    NotAfter:  %s
-  PublicKey:
-    Algorithm: %s
-    Hash: %s
-    SubjectKeyId: %s
-  Issuer: %s
-    AuthorityKeyId: %s
-  SignatureAlgorithm: %s
-
-  `,
-			cacert.SerialNumber,
-			cacert.Subject,
-			cacert.NotBefore.Format(time.RFC3339),
-			cacert.NotAfter.Format(time.RFC3339),
-			cacert.PublicKeyAlgorithm,
+SerialNumber: %s
+Subject: %s
+Validity:
+  NotBefore: %s
+  NotAfter:  %s
+PublicKey:
+  Algorithm: %s
+  Hash: %s
+  SubjectKeyId: %s
+Issuer: %s
+  AuthorityKeyId: %s
+SignatureAlgorithm: %s
+`,
+			cert.SerialNumber,
+			cert.Subject,
+			cert.NotBefore.Format(time.RFC3339),
+			cert.NotAfter.Format(time.RFC3339),
+			cert.PublicKeyAlgorithm,
 			pubkeyhash,
-			HexStr(cacert.SubjectKeyId),
-			cacert.Issuer,
-			HexStr(cacert.AuthorityKeyId),
-			cacert.SignatureAlgorithm,
+			HexStr(cert.SubjectKeyId),
+			cert.Issuer,
+			HexStr(cert.AuthorityKeyId),
+			cert.SignatureAlgorithm,
 		)
-		fmt.Fprint(w, "PEM (use `kmgm show -o pem` to show pem only):\n")
+
+	extL:
+		for _, e := range cert.Extensions {
+			for _, ignore := range oidsHandled {
+				if e.Id.Equal(ignore) {
+					continue extL
+				}
+			}
+			if e.Id.Equal(oidSubjectAltName) {
+				fmt.Fprintf(w, "SubjectAltNames (marked critical: %t):\n", e.Critical)
+				for _, p := range cert.DNSNames {
+					fmt.Fprintf(w, "+ DNS: %s\n", p)
+				}
+				for _, p := range cert.EmailAddresses {
+					fmt.Fprintf(w, "+ Email: %s\n", p)
+				}
+				for _, p := range cert.IPAddresses {
+					fmt.Fprintf(w, "+ IP: %v\n", p)
+				}
+				for _, p := range cert.URIs {
+					fmt.Fprintf(w, "+ URI: %v\n", p)
+				}
+			} else if e.Id.Equal(oidBasicConstraints) {
+				fmt.Fprintf(w, "IsCA: %t\n", cert.IsCA)
+				if cert.IsCA {
+					if cert.MaxPathLen == 0 && !cert.MaxPathLenZero {
+						fmt.Fprintf(w, "  MaxPathLen: <nil>\n")
+					} else {
+						fmt.Fprintf(w, "  MaxPathLen: %d\n", cert.MaxPathLen)
+					}
+				}
+			} else if e.Id.Equal(oidKeyUsage) {
+				fmt.Fprintf(w, "KeyUsage (marked critical: %t):\n", e.Critical)
+				fmt.Fprintf(w, "- FIXME[P1]: dump keyusage\n")
+			} else if e.Id.Equal(oidExtKeyUsage) {
+				fmt.Fprintf(w, "ExtKeyUsage (marked critical: %t):\n", e.Critical)
+				fmt.Fprintf(w, "- FIXME[P1]: dump extkeyusage\n")
+			} else if e.Id.Equal(oidNameConstraints) {
+				fmt.Fprintf(w, "Name Constraints (marked critical: %t):\n", e.Critical)
+				for _, p := range cert.PermittedDNSDomains {
+					fmt.Fprintf(w, "+ DNS: %s\n", p)
+				}
+				for _, p := range cert.PermittedEmailAddresses {
+					fmt.Fprintf(w, "+ Email: %s\n", p)
+				}
+				for _, p := range cert.PermittedIPRanges {
+					fmt.Fprintf(w, "+ IPRange: %v\n", p)
+				}
+				for _, p := range cert.PermittedURIDomains {
+					fmt.Fprintf(w, "+ URIDomains: %v\n", p)
+				}
+				for _, p := range cert.ExcludedDNSDomains {
+					fmt.Fprintf(w, "- DNS: %s\n", p)
+				}
+				for _, p := range cert.ExcludedEmailAddresses {
+					fmt.Fprintf(w, "- Email: %s\n", p)
+				}
+				for _, p := range cert.ExcludedIPRanges {
+					fmt.Fprintf(w, "- IPRange: %v\n", p)
+				}
+				for _, p := range cert.ExcludedURIDomains {
+					fmt.Fprintf(w, "- URIDomains: %v\n", p)
+				}
+			} else {
+				fmt.Fprintf(w, "Unknown Extension (%s)\n", e.Id.String())
+			}
+		}
+
+		fmt.Fprint(w, "PEM (use `-o pem` to show pem only):\n")
 	}
 	if ft.ShouldOutputPEM() {
-		bs := pemparser.MarshalCertificateDer(cacert.Raw)
+		bs := pemparser.MarshalCertificateDer(cert.Raw)
 		w.Write(bs)
 	}
 }

@@ -52,18 +52,6 @@ func createCertificate(env *action.Environment, cfg *Config, priv crypto.Private
 		// - IPAddresses
 		// - URIs
 
-		// FIXME[P2]: Name Constraints:
-		// https://tools.ietf.org/html/rfc5280#section-4.2.1.10
-		// - ExcludedDNSDomains
-		// - ExcludedEmailAddresses
-		// - ExcludedIPRanges
-		// - ExcludedURIDomains
-		// - PermittedDNSDomains
-		// - PermittedDNSDomainsCritical
-		// - PermittedEmailAddresses
-		// - PermittedIPRanges
-		// - PermittedURIDomains
-
 		// https://tools.ietf.org/html/rfc5280#section-4.2.2.1
 		// OCSPServer: []string{},
 		// IssuingCertificateURL: []string{},
@@ -98,6 +86,23 @@ func createCertificate(env *action.Environment, cfg *Config, priv crypto.Private
 
 		// CRLDistributionPoints: FIXME
 	}
+
+	// FIXME[P2]: Name Constraints:
+	// https://tools.ietf.org/html/rfc5280#section-4.2.1.10
+	// - ExcludedDNSDomains
+	// - ExcludedEmailAddresses
+	// - ExcludedIPRanges
+	// - ExcludedURIDomains
+	// - PermittedDNSDomains
+	// - PermittedDNSDomainsCritical
+	// - PermittedEmailAddresses
+	// - PermittedIPRanges
+	// - PermittedURIDomains
+	if len(cfg.PermittedDNSDomains) > 0 {
+		t.PermittedDNSDomainsCritical = true
+		t.PermittedDNSDomains = cfg.PermittedDNSDomains
+	}
+
 	parent := t // self signed cert
 
 	certDer, err := x509.CreateCertificate(env.Randr, t, parent, pub, priv)

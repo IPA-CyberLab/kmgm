@@ -61,6 +61,11 @@ setup:
   # validity: farfuture # valid effectively forever
 
   keyType: {{ .KeyType }}
+  
+  permittedDNSDomains:
+  {{- range .PermittedDNSDomains }}
+    - {{ . }}
+  {{- end -}}
 {{ end -}}
 `
 
