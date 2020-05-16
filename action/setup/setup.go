@@ -23,10 +23,16 @@ func createCertificate(env *action.Environment, cfg *Config, priv crypto.Private
 	start := time.Now()
 	slog.Infow("Generating certificate...")
 
-	// FIXME[P1]: check and abort when priv key type mismatch
-
 	pub, err := wcrypto.ExtractPublicKey(priv)
 	if err != nil {
+		return nil, err
+	}
+
+	kt, err := wcrypto.KeyTypeOfPub(pub)
+	if err != nil {
+		return nil, err
+	}
+	if err := cfg.KeyType.CompatibleWith(kt); err != nil {
 		return nil, err
 	}
 

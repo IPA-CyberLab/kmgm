@@ -66,7 +66,6 @@ func (cfg *Config) Verify(now time.Time) error {
 	if err := cfg.Subject.Verify(); err != nil {
 		return fmt.Errorf("Subject.%w", err)
 	}
-	// FIXME[P2]: Test me
 	if cfg.Subject.IsEmpty() {
 		return ErrSubjectEmpty
 	}

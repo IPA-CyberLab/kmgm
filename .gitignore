@@ -2,3 +2,4 @@ kmgm
 !kmgm/
 *.pem
 dist/
+cover.out
