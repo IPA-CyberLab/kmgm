@@ -62,8 +62,11 @@ setup:
 
   keyType: {{ .KeyType }}
   
-  permittedDNSDomains:
-  {{- range .PermittedDNSDomains }}
+  # For advanced users only.
+  #   nameConstraints allow CA to scope subjectAltNames of its leaf certificates.
+  #   https://tools.ietf.org/html/rfc5280#section-4.2.1.10
+  nameConstraints:
+  {{- range .NameConstraints.Strings }}
     - {{ . }}
   {{- end -}}
 {{ end -}}

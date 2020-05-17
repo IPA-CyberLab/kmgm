@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto"
 	"crypto/rand"
+	"crypto/x509"
 	"crypto/x509/pkix"
 	"errors"
 	"fmt"
@@ -53,7 +54,7 @@ func prepareBasedir(t *testing.T) (string, func()) {
 	return basedir, func() { os.RemoveAll(basedir) }
 }
 
-func readCASubject(t *testing.T, basedir string) pkix.Name {
+func readCACert(t *testing.T, basedir string) *x509.Certificate {
 	t.Helper()
 
 	stor, err := storage.New(basedir)
@@ -71,6 +72,13 @@ func readCASubject(t *testing.T, basedir string) pkix.Name {
 		t.Fatal(err)
 	}
 
+	return cacert
+}
+
+func readCASubject(t *testing.T, basedir string) pkix.Name {
+	t.Helper()
+
+	cacert := readCACert(t, basedir)
 	return cacert.Subject
 }
 
@@ -236,7 +244,6 @@ setup:
 		t.Errorf("Expected no Country for noDefault: true setups, but got %+v", s.Country)
 	}
 }
-
 func TestSetup_NoDefault_NoKeyType(t *testing.T) {
 	basedir, teardown := prepareBasedir(t)
 	t.Cleanup(teardown)
@@ -852,4 +859,82 @@ func TestIssue_RenewCert_NoDefault(t *testing.T) {
 			t.Errorf("Shouldn't have renewed, but renewed: cert.NotBefore %v", cert.NotBefore)
 		}
 	})
+}
+
+func Test_NameConstraints(t *testing.T) {
+	basedir, teardown := prepareBasedir(t)
+	t.Cleanup(teardown)
+
+	yaml := []byte(`
+noDefault: true
+
+setup:
+  subject:
+    commonName: testCA
+
+  keyType: ecdsa
+  validity: farfuture
+
+  nameConstraints:
+  - my.example
+  - 192.168.10.0/24
+  - -bad.my.example
+`)
+
+	logs, err := runKmgm(t, context.Background(), basedir, yaml, []string{"setup"}, nowDefault)
+	expectErr(t, err, nil)
+	expectLogMessage(t, logs, "CA setup successfully completed")
+
+	cacert := readCACert(t, basedir)
+	certpool := x509.NewCertPool()
+	certpool.AddCert(cacert)
+
+	t.Run("Success", func(t *testing.T) {
+		privPath := filepath.Join(basedir, "issue.priv.pem")
+		certPath := filepath.Join(basedir, "issue.cert.pem")
+		issueYaml := []byte(fmt.Sprintf(`
+issue:
+  subject:
+    commonName: leaf_CN
+  subjectAltNames:
+    - my.example
+    - sub.my.example
+    - 192.168.10.123
+  keyType: rsa
+  keyUsage:
+    preset: tlsClientServer
+  validity: 30d
+
+certPath: %s
+privateKeyPath: %s
+
+noDefault: true
+`, certPath, privPath))
+		logs, err = runKmgm(t, context.Background(), basedir, issueYaml, []string{"issue"}, nowDefault)
+		expectErr(t, err, nil)
+		_ = logs
+
+		cert, err := storage.ReadCertificateFile(certPath)
+		if err != nil {
+			t.Fatalf("cert read: %v", err)
+		}
+
+		if _, err := cert.Verify(x509.VerifyOptions{
+			DNSName:     "my.example",
+			Roots:       certpool,
+			CurrentTime: nowDefault,
+		}); err != nil {
+			t.Errorf("cert verify: %v", err)
+		}
+
+		if _, err := cert.Verify(x509.VerifyOptions{
+			DNSName:     "192.168.10.123",
+			Roots:       certpool,
+			CurrentTime: nowDefault,
+		}); err != nil {
+			t.Errorf("cert verify: %v", err)
+		}
+	})
+
+	// FIXME[P2]: check if specified san conforms to name constraints of the CA.
 }

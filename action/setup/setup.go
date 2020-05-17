@@ -85,22 +85,19 @@ func createCertificate(env *action.Environment, cfg *Config, priv crypto.Private
 		SubjectKeyId: ski,
 
 		// CRLDistributionPoints: FIXME
-	}
 
-	// FIXME[P2]: Name Constraints:
-	// https://tools.ietf.org/html/rfc5280#section-4.2.1.10
-	// - ExcludedDNSDomains
-	// - ExcludedEmailAddresses
-	// - ExcludedIPRanges
-	// - ExcludedURIDomains
-	// - PermittedDNSDomains
-	// - PermittedDNSDomainsCritical
-	// - PermittedEmailAddresses
-	// - PermittedIPRanges
-	// - PermittedURIDomains
-	if len(cfg.PermittedDNSDomains) > 0 {
-		t.PermittedDNSDomainsCritical = true
-		t.PermittedDNSDomains = cfg.PermittedDNSDomains
+		PermittedDNSDomainsCritical: !cfg.NameConstraints.IsEmpty(),
+		PermittedDNSDomains:         cfg.NameConstraints.PermittedDNSDomains,
+		ExcludedDNSDomains:          cfg.NameConstraints.ExcludedDNSDomains,
+		PermittedIPRanges:           cfg.NameConstraints.PermittedIPRanges,
+		ExcludedIPRanges:            cfg.NameConstraints.ExcludedIPRanges,
+
+		// FIXME[P2]: Support more name constraints:
+		// https://tools.ietf.org/html/rfc5280#section-4.2.1.10
+		// PermittedEmailAddresses
+		// ExcludedEmailAddresses
+		// PermittedURIDomains
+		// ExcludedURIDomains
 	}
 
 	parent := t // self signed cert

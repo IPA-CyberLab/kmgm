@@ -20,7 +20,7 @@ type Config struct {
 	Validity period.ValidityPeriod `yaml:"validity" flags:"validity,time duration/timestamp where the cert is valid to (examples: 30d&comma; 1y&comma; 20220530)"`
 	KeyType  wcrypto.KeyType       `yaml:"keyType" flags:"key-type,private key type (rsa&comma; ecdsa),t"`
 
-	PermittedDNSDomains []string `yaml:"permittedDNSDomains"`
+	NameConstraints NameConstraints `yaml:"nameConstraints"`
 }
 
 func DefaultConfig(baseSubject *dname.Config) *Config {
