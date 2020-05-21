@@ -55,6 +55,13 @@ message KeyUsage {
   repeated uint32 ext_key_usages = 2;
 }
 
+message IssuePreflightRequest {
+  string profile = 1;
+}
+
+message IssuePreflightResponse {
+}
+
 message IssueCertificateRequest {
   bytes public_key = 1;
   DistinguishedName subject = 2;
@@ -79,6 +86,7 @@ message GetCertificateResponse {
 }
 
 service CertificateService {
+  rpc IssuePreflight(IssuePreflightRequest) returns (IssuePreflightResponse);
   rpc IssueCertificate(IssueCertificateRequest) returns (IssueCertificateResponse);
   rpc GetCertificate(GetCertificateRequest) returns (GetCertificateResponse);
 }

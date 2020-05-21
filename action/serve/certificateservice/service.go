@@ -17,6 +17,7 @@ import (
 	"github.com/IPA-CyberLab/kmgm/period"
 	"github.com/IPA-CyberLab/kmgm/remote/user"
 	"github.com/IPA-CyberLab/kmgm/san"
+	"github.com/IPA-CyberLab/kmgm/storage"
 	"github.com/IPA-CyberLab/kmgm/storage/issuedb"
 )
 
@@ -28,6 +29,27 @@ var _ = pb.CertificateServiceServer(&Service{})
 
 func New(env *action.Environment) (*Service, error) {
 	return &Service{env: env}, nil
+}
+
+func (svc *Service) IssuePreflight(ctx context.Context, req *pb.IssuePreflightRequest) (*pb.IssuePreflightResponse, error) {
+	slog := svc.env.Logger.Sugar()
+
+	u := user.FromContext(ctx)
+	if !u.IsAllowedToIssueCertificate(req.Profile) {
+		return nil, grpc.Errorf(codes.Unauthenticated, "%v is not allowed to issue certificate.", u)
+	}
+
+	if err := storage.VerifyProfileName(req.Profile); err != nil {
+		return nil, grpc.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	_, err := svc.env.Storage.Profile(req.Profile)
+	if err != nil {
+		slog.Infof("IssuePreflight: Storage.Profile(%q) returned err: %v", req.Profile, err)
+		return nil, grpc.Errorf(codes.NotFound, "Failed to access specified profile.")
+	}
+
+	return &pb.IssuePreflightResponse{}, nil
 }
 
 func (svc *Service) IssueCertificate(ctx context.Context, req *pb.IssueCertificateRequest) (*pb.IssueCertificateResponse, error) {

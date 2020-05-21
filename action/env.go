@@ -100,6 +100,10 @@ func (env *Environment) LoadConnectionInfo() error {
 }
 
 func (env *Environment) EnsureClientConn(ctx context.Context) error {
+	if env.ClientConn != nil {
+		return nil
+	}
+
 	conn, err := env.ConnectionInfo.Dial(ctx, env.Logger)
 	if err != nil {
 		return err

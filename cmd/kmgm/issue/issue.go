@@ -374,122 +374,126 @@ func (c *Config) Verify(env *action.Environment) error {
 	return nil
 }
 
-type CASubjectFunc func(env *action.Environment) *dname.Config
-type IssueFunc func(ctx context.Context, env *action.Environment, pub crypto.PublicKey, cfg *issue.Config) ([]byte, error)
+type Strategy interface {
+	EnsureCA(ctx context.Context, env *action.Environment) error
+	CASubject(ctx context.Context, env *action.Environment) *dname.Config
+	Issue(ctx context.Context, env *action.Environment, pub crypto.PublicKey, cfg *issue.Config) ([]byte, error)
+}
 
-func ActionImpl(caSubjectFunc CASubjectFunc, issueFunc IssueFunc) func(*cli.Context) error {
-	return func(c *cli.Context) error {
-		env := action.GlobalEnvironment
-		slog := env.Logger.Sugar()
+func ActionImpl(strategy Strategy, c *cli.Context) error {
+	env := action.GlobalEnvironment
+	slog := env.Logger.Sugar()
 
-		profile, err := env.Profile()
-		if err != nil {
+	var cfg *Config
+	if c.Bool("dump-template") || !c.Bool("no-default") {
+		slog.Debugf("Constructing default config.")
+
+		baseSubject := strategy.CASubject(c.Context, env)
+		if baseSubject == nil {
+			geo, err := ipapi.QueryCached(env.Storage.GeoIpCachePath(), env.Logger)
+			if err != nil {
+				slog.Infof("ipapi.QueryCached: %v", err)
+			}
+			if geo == nil {
+				geo = &ipapi.Result{}
+			}
+			baseSubject = dname.FromGeoip(geo)
+		}
+
+		cfg = &Config{Issue: issue.DefaultConfig(baseSubject)}
+	} else {
+		slog.Debugf("Config is from scratch.")
+		cfg = &Config{Issue: issue.EmptyConfig()}
+	}
+
+	if !c.Bool("dump-template") {
+		if err := strategy.EnsureCA(c.Context, env); err != nil {
 			return err
 		}
+	}
 
-		var cfg *Config
-		if c.Bool("dump-template") || !c.Bool("no-default") {
-			slog.Debugf("Constructing default config.")
-
-			baseSubject := caSubjectFunc(env)
-			if baseSubject == nil {
-				geo, err := ipapi.QueryCached(env.Storage.GeoIpCachePath(), env.Logger)
-				if err != nil {
-					slog.Infof("ipapi.QueryCached: %v", err)
-				}
-				if geo == nil {
-					geo = &ipapi.Result{}
-				}
-				baseSubject = dname.FromGeoip(geo)
-			}
-
-			cfg = &Config{Issue: issue.DefaultConfig(baseSubject)}
-		} else {
-			slog.Debugf("Config is from scratch.")
-			cfg = &Config{Issue: issue.EmptyConfig()}
-		}
-
-		if !c.Bool("dump-template") {
-			if err := setup.EnsureCA(env, nil, profile, setup.DisallowNonInteractiveSetup); err != nil {
-				return err
-			}
-		}
-
-		if cfgbs, ok := c.App.Metadata["config"]; ok {
-			if err := yaml.UnmarshalStrict(cfgbs.([]byte), cfg); err != nil {
-				return err
-			}
-		}
-		if err := structflags.PopulateStructFromCliContext(cfg, c); err != nil {
+	if cfgbs, ok := c.App.Metadata["config"]; ok {
+		if err := yaml.UnmarshalStrict(cfgbs.([]byte), cfg); err != nil {
 			return err
 		}
+	}
+	if err := structflags.PopulateStructFromCliContext(cfg, c); err != nil {
+		return err
+	}
 
-		if c.Bool("dump-template") {
-			if err := frontend.DumpTemplate(ConfigTemplateText, cfg); err != nil {
+	if c.Bool("dump-template") {
+		if err := frontend.DumpTemplate(ConfigTemplateText, cfg); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	if err := PrepareKeyTypePath(env, &cfg.Issue.KeyType, &cfg.PrivateKeyPath); err != nil {
+		return fmt.Errorf("Failed to acquire private key: %w", err)
+	}
+
+	var err error
+	cfg.CertPath, err = PromptCertPath(env, cfg.PrivateKeyPath, cfg.CertPath)
+	if err != nil {
+		return fmt.Errorf("Failed to acquire certificate file path: %w", err)
+	}
+
+	if err := frontend.EditStructWithVerifier(
+		env.Frontend, ConfigTemplateText, cfg, func(cfgI interface{}) error {
+			cfg := cfgI.(*Config)
+			if err := cfg.Verify(env); err != nil {
 				return err
 			}
 			return nil
-		}
-
-		if err := PrepareKeyTypePath(env, &cfg.Issue.KeyType, &cfg.PrivateKeyPath); err != nil {
-			return fmt.Errorf("Failed to acquire private key: %w", err)
-		}
-
-		cfg.CertPath, err = PromptCertPath(env, cfg.PrivateKeyPath, cfg.CertPath)
-		if err != nil {
-			return fmt.Errorf("Failed to acquire certificate file path: %w", err)
-		}
-
-		if err := frontend.EditStructWithVerifier(
-			env.Frontend, ConfigTemplateText, cfg, func(cfgI interface{}) error {
-				cfg := cfgI.(*Config)
-				if err := cfg.Verify(env); err != nil {
-					return err
-				}
-				return nil
-			}); err != nil {
-			return err
-		}
-
-		priv, err := EnsurePrivateKey(env, cfg.Issue.KeyType, cfg.PrivateKeyPath)
-		if err != nil {
-			return err
-		}
-
-		pub, err := wcrypto.ExtractPublicKey(priv)
-		if err != nil {
-			return err
-		}
-
-		certDer, err := issueFunc(c.Context, env, pub, cfg.Issue)
-		if err != nil {
-			return err
-		}
-
-		if err := storage.WriteCertificateDerFile(cfg.CertPath, certDer); err != nil {
-			return err
-		}
-
-		return nil
+		}); err != nil {
+		return err
 	}
+
+	priv, err := EnsurePrivateKey(env, cfg.Issue.KeyType, cfg.PrivateKeyPath)
+	if err != nil {
+		return err
+	}
+
+	pub, err := wcrypto.ExtractPublicKey(priv)
+	if err != nil {
+		return err
+	}
+
+	certDer, err := strategy.Issue(c.Context, env, pub, cfg.Issue)
+	if err != nil {
+		return err
+	}
+
+	if err := storage.WriteCertificateDerFile(cfg.CertPath, certDer); err != nil {
+		return err
+	}
+
+	return nil
 }
 
-func localCASubject(env *action.Environment) *dname.Config {
-	profile, err := env.Profile()
-	if err != nil {
-		// env.Profile() should have succeeded earlier.
-		panic(err)
-	}
+type Local struct {
+	Profile *storage.Profile
+}
 
+var _ = Strategy(Local{})
+
+func (l Local) EnsureCA(ctx context.Context, env *action.Environment) error {
+	if err := setup.EnsureCA(env, nil, l.Profile, setup.DisallowNonInteractiveSetup); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (l Local) CASubject(ctx context.Context, env *action.Environment) *dname.Config {
 	// Inherit CA subject iff CA is setup.
 	now := env.NowImpl()
-	if st := profile.Status(now); st.Code == storage.ValidCA {
+	if st := l.Profile.Status(now); st.Code == storage.ValidCA {
 		return dname.FromPkixName(st.CACert.Subject)
 	}
 	return nil
 }
 
-func localIssue(ctx context.Context, env *action.Environment, pub crypto.PublicKey, cfg *issue.Config) ([]byte, error) {
+func (Local) Issue(ctx context.Context, env *action.Environment, pub crypto.PublicKey, cfg *issue.Config) ([]byte, error) {
 	return issue.Run(env, pub, cfg)
 }
 
@@ -502,5 +506,13 @@ var Command = &cli.Command{
 			Usage: "dump configuration template yaml without making actual changes",
 		},
 	),
-	Action: ActionImpl(localCASubject, localIssue),
+	Action: func(c *cli.Context) error {
+		env := action.GlobalEnvironment
+		profile, err := env.Profile()
+		if err != nil {
+			return err
+		}
+
+		return ActionImpl(Local{Profile: profile}, c)
+	},
 }

@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"time"
 
 	"github.com/IPA-CyberLab/kmgm/frontend/validate"
@@ -58,7 +59,20 @@ type Profile struct {
 // The name of storage profile to be used as default if nothing was specified.
 const DefaultProfileName = "default"
 
+var reValidProfile = regexp.MustCompile(`^\.?[_\-[:alnum:]]+`)
+
+func VerifyProfileName(name string) error {
+	if !reValidProfile.MatchString(name) {
+		return fmt.Errorf("%q is not a valid profile name.", name)
+	}
+	return nil
+}
+
 func (s *Storage) Profile(name string) (*Profile, error) {
+	if err := VerifyProfileName(name); err != nil {
+		return nil, err
+	}
+
 	p := &Profile{
 		BaseDir: filepath.Join(s.BaseDir, name),
 	}
