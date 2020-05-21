@@ -217,5 +217,6 @@ func main() {
 	if err := app.Run(os.Args); err != nil {
 		// omit stacktrace
 		zap.L().WithOptions(zap.AddStacktrace(zap.FatalLevel)).Error(err.Error())
+		os.Exit(1)
 	}
 }
