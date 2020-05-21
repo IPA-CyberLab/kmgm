@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -211,12 +212,30 @@ func NewApp() *cli.App {
 	return app
 }
 
+type ExitCoder interface {
+	ExitCode() int
+}
+
+func ExitCodeOfError(err error) int {
+	for {
+		if ec, ok := err.(ExitCoder); ok {
+			return ec.ExitCode()
+		}
+
+		if err = errors.Unwrap(err); err == nil {
+			break
+		}
+	}
+
+	return 1
+}
+
 func main() {
 	app := NewApp()
 
 	if err := app.Run(os.Args); err != nil {
 		// omit stacktrace
 		zap.L().WithOptions(zap.AddStacktrace(zap.FatalLevel)).Error(err.Error())
-		os.Exit(1)
+		os.Exit(ExitCodeOfError(err))
 	}
 }

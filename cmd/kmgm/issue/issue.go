@@ -313,6 +313,10 @@ func (CertStillValidErr) Is(target error) bool {
 	return ok
 }
 
+func (CertStillValidErr) ExitCode() int {
+	return 10
+}
+
 func (c *Config) verifyExistingCert(env *action.Environment, pub crypto.PublicKey) error {
 	s := env.Logger.Sugar()
 

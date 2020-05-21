@@ -807,6 +807,9 @@ func TestIssue_RenewCert_NoDefault(t *testing.T) {
 		now := time.Date(2020, time.February, 2, 0, 0, 0, 0, time.UTC)
 		logs, err := runKmgm(t, context.Background(), basedir, yaml, []string{"issue"}, now)
 		expectErr(t, err, issue.CertStillValidErr{})
+		if ec := main.ExitCodeOfError(err); ec != 10 {
+			t.Errorf("unexpected ec: %d", ec)
+		}
 		_ = logs
 
 		cert, err := storage.ReadCertificateFile(certPath)
