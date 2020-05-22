@@ -8,6 +8,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/IPA-CyberLab/kmgm/keyusage"
 	"gopkg.in/yaml.v2"
 )
 
@@ -94,15 +95,9 @@ func makeTemplate(tmplstr string) (*template.Template, error) {
 					return "# "
 				},
 				"TestKeyUsageBit": func(bitName string, ku x509.KeyUsage) bool {
-					// FIXME[P3]: move this logic to keyusage
-					var bit x509.KeyUsage
-					switch bitName {
-					case "keyEncipherment":
-						bit = x509.KeyUsageKeyEncipherment
-					case "digitalSignature":
-						bit = x509.KeyUsageDigitalSignature
-					default:
-						log.Panicf("unknown bitName %q", bitName)
+					bit, err := keyusage.BitNameToKeyUsage(bitName)
+					if err != nil {
+						panic(err)
 					}
 
 					return (ku & bit) != 0

@@ -71,6 +71,18 @@ func PresetFromString(s string) (KeyUsage, error) {
 	}
 }
 
+func BitNameToKeyUsage(bitName string) (x509.KeyUsage, error) {
+	// FIXME[P2]: Support more
+	switch bitName {
+	case "keyEncipherment":
+		return x509.KeyUsageKeyEncipherment, nil
+	case "digitalSignature":
+		return x509.KeyUsageDigitalSignature, nil
+	default:
+		return x509.KeyUsage(0), fmt.Errorf("unknown bitName %q", bitName)
+	}
+}
+
 func (u *KeyUsage) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	var yku yamlKeyUsage
 	if err := unmarshal(&yku); err != nil {
@@ -95,15 +107,11 @@ func (u *KeyUsage) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 	u.KeyUsage = x509.KeyUsage(0)
 	for _, ku := range yku.KeyUsage {
-		// FIXME[P2]: Support more
-
-		if ku == "keyEncipherment" {
-			u.KeyUsage |= x509.KeyUsageKeyEncipherment
-		} else if ku == "digitalSignature" {
-			u.KeyUsage |= x509.KeyUsageDigitalSignature
-		} else {
-			return fmt.Errorf("Unknown keyUsage %q", ku)
+		bit, err := BitNameToKeyUsage(ku)
+		if err != nil {
+			return err
 		}
+		u.KeyUsage |= bit
 	}
 
 	foundAny := false
