@@ -178,18 +178,14 @@ func PromptCertPath(env *action.Environment, privPath, certPath string) (string,
 	return certPath, nil
 }
 
-// FIXME[P2]: Help msg for keyType
 // FIXME[P2]: Should escape
 const ConfigTemplateText = `
 ---
 # kmgm pki new cert config
 
-privateKeyPath: {{ .PrivateKeyPath }}
-certPath: {{ .CertPath }}
-
 {{- with .Issue }}
 issue:
-{{ template "subject" .Subject }}
+  {{ template "subject" .Subject }}
 
   # The subjectAltNames specifies hostnames or ipaddrs which the cert is issued
   # against.
@@ -207,7 +203,11 @@ issue:
   # validity: 2y # valid for 2 years from now.
   # validity: 20220530 # valid until yyyyMMdd.
 
+  # The type of private/public key pair.
   keyType: {{ .KeyType }}
+  # keyType: any # Accept any key type, or create RSA key pair if not exists.
+  # keyType: rsa
+  # keyType: ecdsa
 
   # keyUsage specifies the purpose of the key signed.
   keyUsage:
@@ -237,9 +237,22 @@ issue:
     - clientAuth
     {{ CommentOutIfFalse (and (eq .KeyUsage.Preset "custom") (HasExtKeyUsage "serverAuth" .KeyUsage.ExtKeyUsages)) -}}
     - serverAuth
-{{ end -}}
+{{ end }}
 
+# Private key file path:
+#   If the file exists, kmgm reads it.
+#   If the file does not exist, kmgm generates a new one.
+privateKeyPath: {{ .PrivateKeyPath }}
+
+# Certificate file path:
+#   If the file exists, kmgm renews the certificate.
+#   If the file does not exist, kmgm issues a fresh one.
+certPath: {{ .CertPath }}
+
+# Renew certificate only if it expires within the specified threshold.
 renewBefore: {{ .RenewBefore }}
+# renewBefore: immediately # renew regardless of the expiration date.
+# renewBefore: 7d # renew only if the certificate is set to expire within 7 days.
 `
 
 type Config struct {
