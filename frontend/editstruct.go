@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/x509"
 	"fmt"
-	"log"
 	"strings"
 	"text/template"
 
@@ -95,7 +94,7 @@ func makeTemplate(tmplstr string) (*template.Template, error) {
 					return "# "
 				},
 				"TestKeyUsageBit": func(bitName string, ku x509.KeyUsage) bool {
-					bit, err := keyusage.BitNameToKeyUsage(bitName)
+					bit, err := keyusage.KeyUsageFromString(bitName)
 					if err != nil {
 						panic(err)
 					}
@@ -103,17 +102,9 @@ func makeTemplate(tmplstr string) (*template.Template, error) {
 					return (ku & bit) != 0
 				},
 				"HasExtKeyUsage": func(ekuName string, ekus []x509.ExtKeyUsage) bool {
-					// FIXME[P3]: move this logic to keyusage
-					var eku x509.ExtKeyUsage
-					switch ekuName {
-					case "any":
-						eku = x509.ExtKeyUsageAny
-					case "clientAuth":
-						eku = x509.ExtKeyUsageClientAuth
-					case "serverAuth":
-						eku = x509.ExtKeyUsageServerAuth
-					default:
-						log.Panicf("unknown ekuName %q", ekuName)
+					eku, err := keyusage.ExtKeyUsageFromString(ekuName)
+					if err != nil {
+						panic(err)
 					}
 					for _, e := range ekus {
 						if e == eku {

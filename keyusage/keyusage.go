@@ -71,7 +71,7 @@ func PresetFromString(s string) (KeyUsage, error) {
 	}
 }
 
-func BitNameToKeyUsage(bitName string) (x509.KeyUsage, error) {
+func KeyUsageFromString(bitName string) (x509.KeyUsage, error) {
 	// FIXME[P2]: Support more
 	switch bitName {
 	case "keyEncipherment":
@@ -80,6 +80,20 @@ func BitNameToKeyUsage(bitName string) (x509.KeyUsage, error) {
 		return x509.KeyUsageDigitalSignature, nil
 	default:
 		return x509.KeyUsage(0), fmt.Errorf("unknown bitName %q", bitName)
+	}
+}
+
+func ExtKeyUsageFromString(ekuName string) (x509.ExtKeyUsage, error) {
+	// FIXME[P2]: Support more
+	switch ekuName {
+	case "any":
+		return x509.ExtKeyUsageAny, nil
+	case "clientAuth":
+		return x509.ExtKeyUsageClientAuth, nil
+	case "serverAuth":
+		return x509.ExtKeyUsageServerAuth, nil
+	default:
+		return x509.ExtKeyUsage(0), fmt.Errorf("unknown ekuName %q", ekuName)
 	}
 }
 
@@ -107,7 +121,7 @@ func (u *KeyUsage) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 	u.KeyUsage = x509.KeyUsage(0)
 	for _, ku := range yku.KeyUsage {
-		bit, err := BitNameToKeyUsage(ku)
+		bit, err := KeyUsageFromString(ku)
 		if err != nil {
 			return err
 		}
@@ -116,16 +130,15 @@ func (u *KeyUsage) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 	foundAny := false
 	u.ExtKeyUsages = []x509.ExtKeyUsage{}
-	for _, eku := range yku.ExtKeyUsage {
-		// FIXME[P2]: Support more
+	for _, ekustr := range yku.ExtKeyUsage {
+		eku, err := ExtKeyUsageFromString(ekustr)
+		if err != nil {
+			return err
+		}
 
-		if eku == "any" {
+		u.ExtKeyUsages = append(u.ExtKeyUsages, eku)
+		if eku == x509.ExtKeyUsageAny {
 			foundAny = true
-			u.ExtKeyUsages = append(u.ExtKeyUsages, x509.ExtKeyUsageAny)
-		} else if eku == "clientAuth" {
-			u.ExtKeyUsages = append(u.ExtKeyUsages, x509.ExtKeyUsageClientAuth)
-		} else if eku == "serverAuth" {
-			u.ExtKeyUsages = append(u.ExtKeyUsages, x509.ExtKeyUsageServerAuth)
 		}
 	}
 	if foundAny && len(u.ExtKeyUsages) > 1 {
