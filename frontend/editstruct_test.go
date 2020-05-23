@@ -34,3 +34,22 @@ after2`,
 		}
 	}
 }
+
+func TestYamlEscapeString(t *testing.T) {
+	testcases := []struct {
+		Input    string
+		Expected string
+	}{
+		{"abcd", "abcd"},
+		{"こんにちは", "こんにちは"},
+		{"💯", `"\U0001F4AF"`},
+		{"", `""`},
+		{"\t ", `"\t "`},
+	}
+	for _, tc := range testcases {
+		actual := frontend.YamlEscapeString(tc.Input)
+		if actual != tc.Expected {
+			t.Errorf("Expected: %q Actual: %q", tc.Expected, actual)
+		}
+	}
+}

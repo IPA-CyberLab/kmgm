@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/x509"
 	"fmt"
+	"log"
 	"strings"
 	"text/template"
 
@@ -23,14 +24,14 @@ const configTemplateTextPrologue = `
   # The subject explains name, affiliation, and location of the target computer,
   # user, or service the cert is issued against.
   subject:
-    commonName: {{ .CommonName }}
-    organization: {{ .Organization }}
-    organizationalUnit: {{ .OrganizationalUnit }}
-    country: {{ .Country }}
-    locality: {{ .Locality }}
-    province: {{ .Province }}
-    streetAddress: {{ .StreetAddress }}
-    postalCode: {{ .PostalCode }}
+    commonName: {{ .CommonName | YamlEscapeString }}
+    organization: {{ .Organization | YamlEscapeString }}
+    organizationalUnit: {{ .OrganizationalUnit | YamlEscapeString }}
+    country: {{ .Country | YamlEscapeString }}
+    locality: {{ .Locality | YamlEscapeString }}
+    province: {{ .Province | YamlEscapeString }}
+    streetAddress: {{ .StreetAddress | YamlEscapeString }}
+    postalCode: {{ .PostalCode | YamlEscapeString }}
 {{- end -}}
 {{- with .ErrorString -}}
 # Please address the following error:
@@ -70,6 +71,18 @@ func StripErrorText(s string) string {
 	return s
 }
 
+func YamlEscapeString(s string) string {
+	bs, err := yaml.Marshal(s)
+	if err != nil {
+		log.Panicf("Failed to yaml.Marshal string %q: %v", s, err)
+	}
+
+	// omit last \n
+	bs = bs[:len(bs)-1]
+
+	return string(bs)
+}
+
 func CallVerifyMethod(cfgI interface{}) error {
 	cfg := cfgI.(interface {
 		Verify() error
@@ -86,6 +99,7 @@ func makeTemplate(tmplstr string) (*template.Template, error) {
 		template.New("setupconfig").
 			Funcs(template.FuncMap{
 				"PrependYamlCommentLiteral": PrependYamlCommentLiteral,
+				"YamlEscapeString":          YamlEscapeString,
 				"StripBeforeLine":           func() string { return stripBeforeLine },
 				"CommentOutIfFalse": func(e bool) string {
 					if e {

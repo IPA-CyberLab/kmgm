@@ -178,7 +178,6 @@ func PromptCertPath(env *action.Environment, privPath, certPath string) (string,
 	return certPath, nil
 }
 
-// FIXME[P2]: Should escape
 const ConfigTemplateText = `
 ---
 # kmgm pki new cert config
@@ -191,7 +190,7 @@ issue:
   # against.
   subjectAltNames:
   {{- range .Names.DNSNames }}
-    - {{ . }}
+    - {{ . | YamlEscapeString }}
   {{- end -}}
   {{- range .Names.IPAddrs }}
     - {{ printf "%v" . }}
@@ -242,12 +241,12 @@ issue:
 # Private key file path:
 #   If the file exists, kmgm reads it.
 #   If the file does not exist, kmgm generates a new one.
-privateKeyPath: {{ .PrivateKeyPath }}
+privateKeyPath: {{ .PrivateKeyPath | YamlEscapeString }}
 
 # Certificate file path:
 #   If the file exists, kmgm renews the certificate.
 #   If the file does not exist, kmgm issues a fresh one.
-certPath: {{ .CertPath }}
+certPath: {{ .CertPath | YamlEscapeString }}
 
 # Renew certificate only if it expires within the specified threshold.
 renewBefore: {{ .RenewBefore }}

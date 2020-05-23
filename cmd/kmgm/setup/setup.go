@@ -45,7 +45,6 @@ func DefaultConfig(env *action.Environment) *Config {
 	return &Config{Setup: setup.DefaultConfig(dname.FromGeoip(geo))}
 }
 
-// FIXME[P2]: Should escape
 const configTemplateText = `
 ---
 # kmgm PKI CA config
@@ -67,7 +66,7 @@ setup:
   #   https://tools.ietf.org/html/rfc5280#section-4.2.1.10
   nameConstraints:
   {{- range .NameConstraints.Strings }}
-    - {{ . }}
+    - {{ . | YamlEscapeString }}
   {{- end -}}
 {{ end -}}
 `
