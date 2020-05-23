@@ -3,8 +3,11 @@ package serve
 import (
 	"errors"
 	"io/ioutil"
+	"log"
+	"net"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -47,8 +50,7 @@ func (ta *FixedTokenAuthProvider) LogHelpMessage(listenAddr, pubkeyhash string) 
 
 	// FIXME[P3]: make NotAfter configurable.
 	slog.Infof("Node bootstrap enabled for 15 minutes using token: %s", ta.Token)
-	// FIXME[P2]: pick random listenaddr. otherwise this will present "--server :34680" which is useless
-	slog.Infof("For your convenience, bootstrap command-line to be executed on your clients would look like: kmgm client --server %s --pinnedpubkey %s --token %s bootstrap", listenAddr, pubkeyhash, ta.Token)
+	slog.Infof("For your convenience, bootstrap command-line to be executed on your clients would look like: kmgm client --server %s --pinnedpubkey %s --token %s bootstrap", FormatListenAddr(listenAddr), pubkeyhash, ta.Token)
 }
 
 type tokenFileAuthProvider struct {
@@ -109,6 +111,50 @@ func (ta *tokenFileAuthProvider) LogHelpMessage(listenAddr, pubkeyhash string) {
 	slog := ta.logger.Sugar()
 
 	slog.Infof("Node bootstrap enabled. Token is read from file %q.", ta.path)
-	// FIXME[P2]: pick random listenaddr. otherwise this will present "--server :34680" which is useless
-	slog.Infof("For your convenience, bootstrap command-line to be executed on your clients would look like: kmgm client --server %s --pinnedpubkey %s --token [token] bootstrap", listenAddr, pubkeyhash)
+	slog.Infof("For your convenience, bootstrap command-line to be executed on your clients would look like: kmgm client --server %s --pinnedpubkey %s --token [token] bootstrap", FormatListenAddr(listenAddr), pubkeyhash)
+}
+
+var ipDocker = net.IPv4(172, 17, 0, 1)
+
+// FormatListenAddr takes a hostport str, and appends an interface ip addr as
+// a host if the original host was empty or 0.0.0.0.
+func FormatListenAddr(listenAddr string) string {
+	host, port, err := net.SplitHostPort(listenAddr)
+	if err != nil {
+		log.Panicf("Failed to net.SplitHostPort(%q): %v", listenAddr, err)
+	}
+	if host == "" || host == "0.0.0.0" {
+		if addrs, err := net.InterfaceAddrs(); err == nil {
+			type candidate struct {
+				Host  string
+				Score int
+			}
+			cs := make([]candidate, 0, len(addrs))
+			for _, addr := range addrs {
+				if ipaddr, ok := addr.(*net.IPNet); ok {
+					ip := ipaddr.IP
+					c := candidate{Host: ip.String(), Score: 100}
+					if ip4 := ip.To4(); len(ip4) == net.IPv4len {
+						c.Score += 50
+					}
+					if ip.IsLoopback() {
+						c.Score -= 10
+					}
+					if ip.Equal(ipDocker) {
+						c.Score -= 20
+					}
+					if ip.IsLinkLocalUnicast() {
+						c.Score -= 30
+					}
+					cs = append(cs, c)
+				}
+			}
+
+			// sort by .Score desc
+			sort.Slice(cs, func(i, j int) bool { return cs[i].Score > cs[j].Score })
+			host = cs[0].Host
+		}
+	}
+
+	return net.JoinHostPort(host, port)
 }
