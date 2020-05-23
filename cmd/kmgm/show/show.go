@@ -241,8 +241,8 @@ func ActionImpl(findCertificateWithPrefixImpl FindCertificateWithPrefixType) fun
 		}
 		prefix := c.Args().First()
 
-		fmtstr := c.String("output")
-		fmt, err := FormatTypeFromString(fmtstr)
+		ftstr := c.String("output")
+		ft, err := FormatTypeFromString(ftstr)
 		if err != nil {
 			return err
 		}
@@ -267,7 +267,7 @@ func ActionImpl(findCertificateWithPrefixImpl FindCertificateWithPrefixType) fun
 			w = wf
 		}
 
-		PrintCertInfo(w, cert, fmt)
+		PrintCertInfo(w, cert, ft)
 
 		return nil
 	}

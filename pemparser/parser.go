@@ -44,7 +44,7 @@ func ParseCertificates(pemText []byte) ([]*x509.Certificate, error) {
 	return certs, nil
 }
 
-func parseSinglePrivateKeyBlock(block *pem.Block) (crypto.PrivateKey, error) {
+func ParseSinglePrivateKeyBlock(block *pem.Block) (crypto.PrivateKey, error) {
 	der := block.Bytes
 	if k, err := x509.ParsePKCS1PrivateKey(der); err == nil {
 		return k, nil
@@ -62,7 +62,7 @@ func ParsePrivateKey(pemText []byte) (crypto.PrivateKey, error) {
 	var priv crypto.PrivateKey
 
 	if err := ForeachPemBlock(pemText, func(block *pem.Block) error {
-		newpriv, err := parseSinglePrivateKeyBlock(block)
+		newpriv, err := ParseSinglePrivateKeyBlock(block)
 		if err == nil {
 			if priv != nil {
 				return errors.New("More than one private key found in given pemText.")
