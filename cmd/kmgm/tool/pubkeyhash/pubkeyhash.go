@@ -52,7 +52,6 @@ func ExtractPublicKeyHashesFromPem(bs []byte, logger *zap.Logger) ([]KeyHash, er
 			case pemparser.PublicKeyPemType:
 				pubi, err := x509.ParsePKIXPublicKey(b.Bytes)
 				if err != nil {
-					// FIXME[P4]: dump prefix?
 					slog.Errorf("Failed to parse a %s block: %v", b.Type, err)
 					return nil // ignore err to continue parsing to next pem block
 				}
