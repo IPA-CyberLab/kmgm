@@ -38,6 +38,10 @@ Issue a new certificate:
 kmgm issue
 ```
 
+## Tutorials
+
+- [Setup nginx with kmgm issued certificate](https://github.com/IPA-CyberLab/kmgm/blob/master/docs/tutorials/nginx/README.md)
+
 ## License
 
 kmgm is licensed under Apache license version 2.0. See [LICENSE](https://github.com/IPA-CyberLab/kmgm/blob/master/LICENSE) for more information.
