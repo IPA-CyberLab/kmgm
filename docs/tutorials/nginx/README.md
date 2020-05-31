@@ -109,7 +109,7 @@ $ kmgm show -o pem -f ca.pem
 
 If you are using Chrome and would like to import the CA certificate, type `chrome://settings/certificates` into the omnibox (URL bar), and click on `Import`.
 
-_[TBD: macOS and Windows platforms require p12 or other serialization format]_
+To import the certificate on Windows, you might want to name the file with `.crt` extension to be recognized as certificate file.
 
 <!-- Markdown link & img dfn's -->
 [chrome-warning]: https://raw.githubusercontent.com/IPA-CyberLab/kmgm/master/docs/tutorials/nginx/chrome-warning.png
