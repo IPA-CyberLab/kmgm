@@ -8,11 +8,35 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+
 	"github.com/IPA-CyberLab/kmgm/action"
 	"github.com/IPA-CyberLab/kmgm/consts"
 	"github.com/IPA-CyberLab/kmgm/pemparser"
 	"github.com/IPA-CyberLab/kmgm/storage/issuedb"
 	"github.com/IPA-CyberLab/kmgm/wcrypto"
+)
+
+const promSubsystem = "issue"
+
+var (
+	startedCounter = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: consts.PrometheusNamespace,
+			Subsystem: promSubsystem,
+			Name:      "issue_started_total",
+		},
+		[]string{"profile"},
+	)
+	handledCounter = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: consts.PrometheusNamespace,
+			Subsystem: promSubsystem,
+			Name:      "issue_handled_total",
+		},
+		[]string{"profile", "error"},
+	)
 )
 
 func createCertificate(env *action.Environment, now time.Time, pub crypto.PublicKey, cfg *Config, cacert *x509.Certificate, capriv crypto.PrivateKey, serial int64) ([]byte, error) {
@@ -93,33 +117,41 @@ func createCertificate(env *action.Environment, now time.Time, pub crypto.Public
 func Run(env *action.Environment, pub crypto.PublicKey, cfg *Config) ([]byte, error) {
 	now := env.NowImpl()
 
+	startedCounter.WithLabelValues(env.ProfileName).Inc()
+
 	if err := cfg.Verify(now); err != nil {
+		handledCounter.WithLabelValues(env.ProfileName, "VerifyFailed").Inc()
 		return nil, err
 	}
 
 	profile, err := env.Profile()
 	if err != nil {
+		handledCounter.WithLabelValues(env.ProfileName, "GetProfileFailed").Inc()
 		return nil, err
 	}
 
 	db, err := issuedb.New(env.Randr, profile.IssueDBPath())
 	if err != nil {
+		handledCounter.WithLabelValues(env.ProfileName, "OpenIssueDBFailed").Inc()
 		return nil, err
 	}
 
 	capriv, err := profile.ReadCAPrivateKey()
 	if err != nil {
+		handledCounter.WithLabelValues(env.ProfileName, "ReadPrivateKeyFailed").Inc()
 		return nil, err
 	}
 
 	cacert, err := profile.ReadCACertificate()
 	if err != nil {
+		handledCounter.WithLabelValues(env.ProfileName, "ReadCACertificateFailed").Inc()
 		return nil, err
 	}
 
 	slog := env.Logger.Sugar()
 
 	if err := wcrypto.VerifyCACertAndKey(capriv, cacert, now); err != nil {
+		handledCounter.WithLabelValues(env.ProfileName, "VerifyCACertAndKeyFailed").Inc()
 		return nil, err
 	}
 
@@ -129,6 +161,7 @@ func Run(env *action.Environment, pub crypto.PublicKey, cfg *Config) ([]byte, er
 	} else {
 		serial, err = db.AllocateSerialNumber()
 		if err != nil {
+			handledCounter.WithLabelValues(env.ProfileName, "AllocateSerialNumberFailed").Inc()
 			return nil, err
 		}
 		slog.Infof("Allocated sn: %v", serial)
@@ -136,6 +169,7 @@ func Run(env *action.Environment, pub crypto.PublicKey, cfg *Config) ([]byte, er
 
 	certDer, err := createCertificate(env, now, pub, cfg, cacert, capriv, serial)
 	if err != nil {
+		handledCounter.WithLabelValues(env.ProfileName, "CreateCertificateFailed").Inc()
 		return nil, err
 	}
 
@@ -145,9 +179,11 @@ func Run(env *action.Environment, pub crypto.PublicKey, cfg *Config) ([]byte, er
 	})
 	if !cfg.NoIssueDBEntry {
 		if err := db.IssueCertificate(serial, string(certPem)); err != nil {
+			handledCounter.WithLabelValues(env.ProfileName, "DBIssueCertificateFailed").Inc()
 			return nil, err
 		}
 	}
 
+	handledCounter.WithLabelValues(env.ProfileName, "Success").Inc()
 	return certDer, nil
 }

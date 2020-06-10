@@ -6,3 +6,4 @@ import (
 
 const NodesOutOfSyncThreshold = 1 * time.Minute
 const AuthProfileName = ".kmgm_server"
+const PrometheusNamespace = "kmgm"
