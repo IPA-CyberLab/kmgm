@@ -25,7 +25,7 @@ var (
 		prometheus.CounterOpts{
 			Namespace: consts.PrometheusNamespace,
 			Subsystem: promSubsystem,
-			Name:      "issue_started_total",
+			Name:      "started_total",
 		},
 		[]string{"profile"},
 	)
@@ -33,9 +33,18 @@ var (
 		prometheus.CounterOpts{
 			Namespace: consts.PrometheusNamespace,
 			Subsystem: promSubsystem,
-			Name:      "issue_handled_total",
+			Name:      "handled_total",
 		},
 		[]string{"profile", "error"},
+	)
+
+	durationSecondsSummary = promauto.NewSummary(
+		prometheus.SummaryOpts{
+			Namespace:  consts.PrometheusNamespace,
+			Subsystem:  promSubsystem,
+			Name:       "duration_seconds",
+			Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
+		},
 	)
 )
 
@@ -115,11 +124,11 @@ func createCertificate(env *action.Environment, now time.Time, pub crypto.Public
 
 // FIXME[P2]: make concurrent safe
 func Run(env *action.Environment, pub crypto.PublicKey, cfg *Config) ([]byte, error) {
-	now := env.NowImpl()
+	start := env.NowImpl()
 
 	startedCounter.WithLabelValues(env.ProfileName).Inc()
 
-	if err := cfg.Verify(now); err != nil {
+	if err := cfg.Verify(start); err != nil {
 		handledCounter.WithLabelValues(env.ProfileName, "VerifyFailed").Inc()
 		return nil, err
 	}
@@ -150,7 +159,7 @@ func Run(env *action.Environment, pub crypto.PublicKey, cfg *Config) ([]byte, er
 
 	slog := env.Logger.Sugar()
 
-	if err := wcrypto.VerifyCACertAndKey(capriv, cacert, now); err != nil {
+	if err := wcrypto.VerifyCACertAndKey(capriv, cacert, start); err != nil {
 		handledCounter.WithLabelValues(env.ProfileName, "VerifyCACertAndKeyFailed").Inc()
 		return nil, err
 	}
@@ -167,7 +176,7 @@ func Run(env *action.Environment, pub crypto.PublicKey, cfg *Config) ([]byte, er
 		slog.Infof("Allocated sn: %v", serial)
 	}
 
-	certDer, err := createCertificate(env, now, pub, cfg, cacert, capriv, serial)
+	certDer, err := createCertificate(env, start, pub, cfg, cacert, capriv, serial)
 	if err != nil {
 		handledCounter.WithLabelValues(env.ProfileName, "CreateCertificateFailed").Inc()
 		return nil, err
@@ -184,6 +193,7 @@ func Run(env *action.Environment, pub crypto.PublicKey, cfg *Config) ([]byte, er
 		}
 	}
 
+	durationSecondsSummary.Observe(env.NowImpl().Sub(start).Seconds())
 	handledCounter.WithLabelValues(env.ProfileName, "Success").Inc()
 	return certDer, nil
 }
