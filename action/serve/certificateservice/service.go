@@ -110,7 +110,7 @@ func (svc *Service) GetCertificate(ctx context.Context, req *pb.GetCertificateRe
 		return &pb.GetCertificateResponse{Certificate: cacert.Raw}, nil
 	}
 
-	db, err := issuedb.New(env.Randr, profile.IssueDBPath())
+	db, err := issuedb.New(profile.IssueDBPath())
 	if err != nil {
 		return nil, grpc.Errorf(codes.Internal, "%v", err)
 	}

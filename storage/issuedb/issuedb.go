@@ -31,13 +31,11 @@ func RandInt63(randr io.Reader) (n int64) {
 }
 
 type IssueDB struct {
-	randr        io.Reader
 	jsonFilePath string
 }
 
-func New(randr io.Reader, jsonFilePath string) (*IssueDB, error) {
+func New(jsonFilePath string) (*IssueDB, error) {
 	return &IssueDB{
-		randr:        randr,
 		jsonFilePath: jsonFilePath,
 	}, nil
 }
@@ -148,13 +146,13 @@ func (db *IssueDB) Query(n int64) (Entry, error) {
 	return Entry{}, ErrNotExist
 }
 
-func (db *IssueDB) AllocateSerialNumber() (int64, error) {
+func (db *IssueDB) AllocateSerialNumber(randr io.Reader) (int64, error) {
 	// Serial number must be unique and unpredictable. We use a random 63-bit int here.
 	// (see https://crypto.stackexchange.com/questions/257/unpredictability-of-x-509-serial-number)
 
 	var n int64
 	for {
-		n = RandInt63(db.randr)
+		n = RandInt63(randr)
 
 		_, err := db.Query(n)
 		if err != nil {

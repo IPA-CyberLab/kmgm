@@ -18,7 +18,7 @@ func issueDBForTest(t *testing.T) *issuedb.IssueDB {
 		t.Fatalf("ioutil.TempFile: %v", err)
 	}
 
-	db, err := issuedb.New(rand.Reader, tmpfile.Name())
+	db, err := issuedb.New(tmpfile.Name())
 	if err != nil {
 		t.Fatalf("issuedb.New: %v", err)
 	}
@@ -31,7 +31,7 @@ func TestAllocateSerialNumber(t *testing.T) {
 
 	var ns []int64
 	for i := 0; i < 16; i++ {
-		n, err := db.AllocateSerialNumber()
+		n, err := db.AllocateSerialNumber(rand.Reader)
 		if err != nil {
 			t.Fatalf("AllocateSerialNumber failed: %v", err)
 		}
@@ -54,7 +54,7 @@ func TestAllocateSerialNumber(t *testing.T) {
 func TestIssueCert(t *testing.T) {
 	db := issueDBForTest(t)
 
-	n, err := db.AllocateSerialNumber()
+	n, err := db.AllocateSerialNumber(rand.Reader)
 	if err != nil {
 		t.Fatalf("AllocateSerialNumber failed: %v", err)
 	}

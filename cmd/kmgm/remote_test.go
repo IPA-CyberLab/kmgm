@@ -7,11 +7,19 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 const BootstrapToken = "testtoken"
 
 func runKmgmServe(t *testing.T) (addrPort, cacertPath string) {
+	t.Helper()
+
+	r := prometheus.NewRegistry()
+	prometheus.DefaultRegisterer = r
+	prometheus.DefaultGatherer = r
+
 	basedir, teardown := prepareBasedir(t)
 	t.Cleanup(teardown)
 

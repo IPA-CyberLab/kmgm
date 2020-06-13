@@ -139,7 +139,7 @@ func Run(env *action.Environment, pub crypto.PublicKey, cfg *Config) ([]byte, er
 		return nil, err
 	}
 
-	db, err := issuedb.New(env.Randr, profile.IssueDBPath())
+	db, err := issuedb.New(profile.IssueDBPath())
 	if err != nil {
 		handledCounter.WithLabelValues(env.ProfileName, "OpenIssueDBFailed").Inc()
 		return nil, err
@@ -168,7 +168,7 @@ func Run(env *action.Environment, pub crypto.PublicKey, cfg *Config) ([]byte, er
 	if cfg.NoIssueDBEntry {
 		serial = issuedb.RandInt63(env.Randr)
 	} else {
-		serial, err = db.AllocateSerialNumber()
+		serial, err = db.AllocateSerialNumber(env.Randr)
 		if err != nil {
 			handledCounter.WithLabelValues(env.ProfileName, "AllocateSerialNumberFailed").Inc()
 			return nil, err

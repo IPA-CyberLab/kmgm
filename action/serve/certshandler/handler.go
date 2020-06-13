@@ -80,7 +80,7 @@ func (h *Handler) serveHTTPIfPossible(w http.ResponseWriter, r *http.Request) er
 		return serveCertificate(w, cacert, "cacert.pem")
 	}
 
-	db, err := issuedb.New(env.Randr, profile.IssueDBPath())
+	db, err := issuedb.New(profile.IssueDBPath())
 	if err != nil {
 		return err
 	}

@@ -1,8 +1,6 @@
 package exporter
 
 import (
-	"crypto/rand"
-
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
@@ -58,7 +56,7 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 		// FIXME[P1] export profile status as well
 		profileName := p.Name()
 
-		db, err := issuedb.New(rand.Reader, p.IssueDBPath())
+		db, err := issuedb.New(p.IssueDBPath())
 		if err != nil {
 			slog.Warnf("Failed to open issuedb %q: %v", p.IssueDBPath(), err)
 			continue

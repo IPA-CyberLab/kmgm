@@ -117,7 +117,7 @@ func Run(env *action.Environment, cfg *Config) error {
 	if err != nil {
 		return err
 	}
-	idb, err := issuedb.New(env.Randr, profile.IssueDBPath())
+	idb, err := issuedb.New(profile.IssueDBPath())
 	if err != nil {
 		return err
 	}

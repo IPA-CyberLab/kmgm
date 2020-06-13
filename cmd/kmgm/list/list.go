@@ -91,7 +91,7 @@ var Command = &cli.Command{
 			}
 		}
 
-		db, err := issuedb.New(env.Randr, profile.IssueDBPath())
+		db, err := issuedb.New(profile.IssueDBPath())
 		if err != nil {
 			return err
 		}

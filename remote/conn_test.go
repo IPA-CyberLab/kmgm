@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
 	"github.com/IPA-CyberLab/kmgm/action"
@@ -41,6 +42,10 @@ func init() {
 
 func runTestServer(t *testing.T) (*action.Environment, *storage.Profile, func()) {
 	t.Helper()
+
+	r := prometheus.NewRegistry()
+	prometheus.DefaultRegisterer = r
+	prometheus.DefaultGatherer = r
 
 	basedir, err := ioutil.TempDir("", "kmgm_conn_test")
 	if err != nil {
