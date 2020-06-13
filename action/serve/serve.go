@@ -19,6 +19,7 @@ import (
 	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"golang.org/x/sys/unix"
 
@@ -34,6 +35,7 @@ import (
 	"github.com/IPA-CyberLab/kmgm/action/serve/certshandler"
 	"github.com/IPA-CyberLab/kmgm/action/serve/httpzaplog"
 	"github.com/IPA-CyberLab/kmgm/action/serve/issuehandler"
+	"github.com/IPA-CyberLab/kmgm/exporter"
 	"github.com/IPA-CyberLab/kmgm/pb"
 	"github.com/IPA-CyberLab/kmgm/remote/user"
 	"github.com/IPA-CyberLab/kmgm/san"
@@ -192,6 +194,9 @@ func StartServer(ctx context.Context, env *action.Environment, cfg *Config) (*Se
 	}
 	pb.RegisterCertificateServiceServer(grpcServer, certsvc)
 	reflection.Register(grpcServer)
+
+	collector := exporter.NewCollector(env.Storage, env.Logger)
+	prometheus.MustRegister(collector)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
