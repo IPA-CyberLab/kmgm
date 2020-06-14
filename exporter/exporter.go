@@ -1,6 +1,7 @@
 package exporter
 
 import (
+	"crypto/x509"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -54,7 +55,7 @@ func NewCollector(storage *storage.Storage, logger *zap.Logger) prometheus.Colle
 				"expires_days",
 			),
 			"The certificate expires after given days",
-			[]string{"profile", "status", "serialNumber", "subject"},
+			[]string{"profile", "serialNumber", "subject"},
 			nil,
 		),
 	}
@@ -103,21 +104,33 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 			slog.Warnf("collector: storage.Profiles() failed: %v", err)
 		}
 
-		m := make(map[issuedb.State]int)
+		stateCount := make(map[issuedb.State]int)
+		farthestNotAfter := make(map[string]*x509.Certificate)
 		for _, e := range entries {
-			m[e.State]++
+			stateCount[e.State]++
 
+			if e.State != issuedb.ActiveCertificate {
+				continue
+			}
 			cert, err := e.ParseCertificate()
 			if err != nil {
 				continue
 			}
 
-			expiresDays := cert.NotAfter.Sub(now).Hours() / 24
-			ch <- prometheus.MustNewConstMetric(c.certExpiresDaysDesc, prometheus.GaugeValue, expiresDays, profileName, e.State.String(), cert.SerialNumber.String(), cert.Subject.String())
+			subj := cert.Subject.String()
+
+			farthest, ok := farthestNotAfter[subj]
+			if !ok || farthest.NotAfter.Before(cert.NotAfter) {
+				farthestNotAfter[subj] = cert
+			}
 		}
 		for state := issuedb.State(0); state < issuedb.MaxState+1; state++ {
-			count := m[state]
+			count := stateCount[state]
 			ch <- prometheus.MustNewConstMetric(c.entriesTotalDesc, prometheus.GaugeValue, float64(count), profileName, state.String())
+		}
+		for _, cert := range farthestNotAfter {
+			expiresDays := cert.NotAfter.Sub(now).Hours() / 24
+			ch <- prometheus.MustNewConstMetric(c.certExpiresDaysDesc, prometheus.GaugeValue, expiresDays, profileName, cert.SerialNumber.String(), cert.Subject.String())
 		}
 	}
 }
