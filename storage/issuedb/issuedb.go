@@ -1,6 +1,7 @@
 package issuedb
 
 import (
+	"crypto/x509"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
@@ -9,6 +10,7 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/IPA-CyberLab/kmgm/pemparser"
 	"github.com/gofrs/flock"
 )
 
@@ -18,6 +20,18 @@ type Entry struct {
 	SerialNumber   int64  `json:"sn"`
 	State          State  `json:"state"`
 	CertificatePEM string `json:"certPem"`
+}
+
+func (e *Entry) ParseCertificate() (*x509.Certificate, error) {
+	pem := []byte(e.CertificatePEM)
+	certs, err := pemparser.ParseCertificates(pem)
+	if err != nil {
+		return nil, err
+	}
+	if len(certs) != 1 {
+		return nil, fmt.Errorf("issuedb: Expected 1 cert pem, found %d certs.", len(certs))
+	}
+	return certs[0], nil
 }
 
 func RandInt63(randr io.Reader) (n int64) {

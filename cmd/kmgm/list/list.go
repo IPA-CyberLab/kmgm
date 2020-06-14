@@ -1,12 +1,12 @@
 package list
 
 import (
+	"crypto/x509"
 	"fmt"
 
 	"github.com/urfave/cli/v2"
 
 	"github.com/IPA-CyberLab/kmgm/action"
-	"github.com/IPA-CyberLab/kmgm/pemparser"
 	"github.com/IPA-CyberLab/kmgm/storage"
 	"github.com/IPA-CyberLab/kmgm/storage/issuedb"
 )
@@ -16,20 +16,7 @@ import (
 
 const dateFormat = "06/01/02"
 
-func CertInfo(pem []byte) string {
-	if len(pem) == 0 {
-		return "PEM not found in DB entry"
-	}
-
-	certs, err := pemparser.ParseCertificates(pem)
-	if err != nil {
-		return fmt.Sprintf("error: Failed to parse PEM: %v", err)
-	}
-	if len(certs) != 1 {
-		return fmt.Sprintf("error: %d certs found in PEM, expected only one.", len(certs))
-	}
-
-	c := certs[0]
+func CertInfo(c *x509.Certificate) string {
 	return fmt.Sprintf("%s %s %v",
 		c.NotBefore.Format(dateFormat),
 		c.NotAfter.Format(dateFormat),
@@ -107,7 +94,13 @@ var Command = &cli.Command{
 		fmt.Printf("                             YY/MM/DD YY/MM/DD\n")
 		fmt.Printf("Status   SerialNumber        NotBefor NotAfter Subject\n")
 		for _, e := range es {
-			infotxt := CertInfo([]byte(e.CertificatePEM))
+			cert, err := e.ParseCertificate()
+			var infotxt string
+			if err != nil {
+				infotxt = fmt.Sprintf("error: Failed to parse PEM: %v", err)
+			} else {
+				infotxt = CertInfo(cert)
+			}
 
 			switch e.State {
 			case issuedb.IssueInProgress:

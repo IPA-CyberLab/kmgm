@@ -159,11 +159,26 @@ func CheckFileNotExist(path string) error {
 type CAStatusCode int
 
 const (
-	ValidCA = iota
+	ValidCA CAStatusCode = iota
 	NotCA
 	Broken
 	Expired
+	MaxCAStatusCode = Expired
 )
+
+func (c CAStatusCode) String() string {
+	switch c {
+	case ValidCA:
+		return "valid_ca"
+	case NotCA:
+		return "not_ca"
+	case Broken:
+		return "broken"
+	case Expired:
+		return "expired"
+	}
+	return fmt.Sprintf("unknown_statuscode_%d", c)
+}
 
 type CAStatus struct {
 	Profile *Profile

@@ -208,18 +208,7 @@ func FindCertificateWithPrefix(ctx context.Context, env *action.Environment, pre
 	case 0:
 		return nil, fmt.Errorf("No certificate matches given prefix %q.", prefix)
 	case 1:
-		e := matches[0]
-		pem := []byte(e.CertificatePEM)
-
-		certs, err := pemparser.ParseCertificates(pem)
-		if err != nil {
-			return nil, fmt.Errorf("error: Failed to parse PEM: %w", err)
-		}
-		if len(certs) != 1 {
-			return nil, fmt.Errorf("error: %d certs found in PEM, expected only one.", len(certs))
-		}
-
-		return certs[0], nil
+		return matches[0].ParseCertificate()
 	default:
 		idstrs := make([]string, 0, len(matches))
 		for _, e := range matches {

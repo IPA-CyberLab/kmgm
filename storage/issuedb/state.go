@@ -11,6 +11,7 @@ type State int
 const (
 	IssueInProgress State = iota
 	ActiveCertificate
+	MaxState = ActiveCertificate
 )
 
 func (s State) String() string {
