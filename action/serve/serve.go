@@ -203,7 +203,9 @@ func StartServer(ctx context.Context, env *action.Environment, cfg *Config) (*Se
 		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte("ok\n"))
 	})
-	mux.Handle("/metrics", promhttp.Handler())
+	if cfg.ExposeMetrics {
+		mux.Handle("/metrics", promhttp.Handler())
+	}
 	if cfg.IssueHttp > 0 {
 		issueH, err := issuehandler.New(env, cfg.IssueHttp)
 		if err != nil {

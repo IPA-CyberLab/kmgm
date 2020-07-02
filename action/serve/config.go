@@ -14,6 +14,8 @@ type Config struct {
 
 	IssueHttp int `flags:"issue-http,enable certificate issue via HTTP API"`
 
+	ExposeMetrics bool `flags:"expose-metrics,expose /metrics HTTP endpoint for prometheus to crawl"`
+
 	AutoShutdown time.Duration `flags:"auto-shutdown,auto shutdown server after specified time"`
 
 	// Enable node bootstrapping with the given auth provider.
