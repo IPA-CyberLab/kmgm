@@ -198,7 +198,7 @@ func TestSetup_EmptyConfig(t *testing.T) {
 
 	spaces := []byte(" \t\n")
 	logs, err := runKmgm(t, context.Background(), basedir, spaces, []string{"setup"}, nowDefault)
-	expectErrMessage(t, err, `was empty\.$`)
+	expectErrMessage(t, err, `was empty$`)
 	_ = logs
 }
 

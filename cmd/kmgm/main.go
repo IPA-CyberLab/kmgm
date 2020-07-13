@@ -160,7 +160,7 @@ func NewApp() *cli.App {
 			}
 			configText := string(bs)
 			if strings.TrimSpace(configText) == "" {
-				return fmt.Errorf("The specified config file %s was empty.", configFile)
+				return fmt.Errorf("The specified config file %s was empty", configFile)
 			}
 			app.Metadata["config"] = bs
 
@@ -168,6 +168,8 @@ func NewApp() *cli.App {
 				logger.Debug("The specified config file has NoDefault set to true.")
 				c.Set("no-default", "true")
 			}
+
+			c.Set("non-interactive", "true")
 		}
 
 		var fe frontend.Frontend
