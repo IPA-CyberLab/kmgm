@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/IPA-CyberLab/kmgm/frontend/validate"
@@ -306,8 +307,18 @@ func (s *Profile) WriteServerCertificate(cert *x509.Certificate) error {
 	return WriteCertificateFile(p, cert)
 }
 
+const InlinePrefix = "inline:"
+
+func ReadFileOrInlineText(p string) ([]byte, error) {
+	if strings.HasPrefix(p, InlinePrefix) {
+		return []byte(p[len(InlinePrefix):]), nil
+	}
+
+	return ioutil.ReadFile(p)
+}
+
 func ReadCertificateFile(p string) (*x509.Certificate, error) {
-	bs, err := ioutil.ReadFile(p)
+	bs, err := ReadFileOrInlineText(p)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to read CA cert: %w", err)
 	}
@@ -360,7 +371,7 @@ func (s *Profile) WriteServerPrivateKey(priv crypto.PrivateKey) error {
 }
 
 func ReadPrivateKeyFile(p string) (crypto.PrivateKey, error) {
-	bs, err := ioutil.ReadFile(p)
+	bs, err := ReadFileOrInlineText(p)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to read private key %q: %w", p, err)
 	}
