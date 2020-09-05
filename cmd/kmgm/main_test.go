@@ -1,58 +1,32 @@
 package main_test
 
 import (
-	"bytes"
 	"context"
 	"crypto"
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"errors"
 	"fmt"
-	"io/ioutil"
-	"os"
 	"path/filepath"
-	"regexp"
 	"testing"
 	"time"
 
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
-	"go.uber.org/zap/zaptest/observer"
 
-	"github.com/IPA-CyberLab/kmgm/action"
 	issuea "github.com/IPA-CyberLab/kmgm/action/issue"
 	setupa "github.com/IPA-CyberLab/kmgm/action/setup"
 	main "github.com/IPA-CyberLab/kmgm/cmd/kmgm"
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/issue"
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/setup"
+	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/testkmgm"
 	"github.com/IPA-CyberLab/kmgm/dname"
-	"github.com/IPA-CyberLab/kmgm/frontend"
-	"github.com/IPA-CyberLab/kmgm/ipapi"
 	"github.com/IPA-CyberLab/kmgm/keyusage"
 	"github.com/IPA-CyberLab/kmgm/period"
 	"github.com/IPA-CyberLab/kmgm/san"
 	"github.com/IPA-CyberLab/kmgm/storage"
+	"github.com/IPA-CyberLab/kmgm/testutils"
 	"github.com/IPA-CyberLab/kmgm/wcrypto"
 )
-
-func init() {
-	ipapi.MockResult = &ipapi.Result{
-		RegionName:  "California",
-		CountryCode: "US",
-	}
-}
-
-func prepareBasedir(t *testing.T) (string, func()) {
-	t.Helper()
-
-	basedir, err := ioutil.TempDir("", "kmgm-testdir-*")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return basedir, func() { os.RemoveAll(basedir) }
-}
 
 func readCACert(t *testing.T, basedir string) *x509.Certificate {
 	t.Helper()
@@ -82,128 +56,27 @@ func readCASubject(t *testing.T, basedir string) pkix.Name {
 	return cacert.Subject
 }
 
-func mockNowImpl(t time.Time) func() time.Time {
-	return func() time.Time {
-		return t
-	}
-}
-
-var nowDefault = time.Date(2020, time.March, 1, 0, 0, 0, 0, time.UTC)
-
-func runKmgm(t *testing.T, ctx context.Context, basedir string, configYaml []byte, args []string, mockNow time.Time) (*observer.ObservedLogs, error) {
-	t.Helper()
-
-	app := main.NewApp()
-
-	zobs, logs := observer.New(zapcore.DebugLevel)
-	logger := zap.New(zobs)
-	app.Metadata = make(map[string]interface{})
-	app.Metadata["Logger"] = logger
-	app.Metadata["NowImpl"] = mockNowImpl(mockNow)
-
-	var stdoutBuf bytes.Buffer
-	var stderrBuf bytes.Buffer
-	app.Writer = &stdoutBuf
-	app.ErrWriter = &stderrBuf
-
-	var tmpfile *os.File
-	if configYaml != nil {
-		var err error
-		tmpfile, err = ioutil.TempFile("", "kmgm-testconfig-*.yml")
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer os.Remove(tmpfile.Name())
-
-		if _, err := tmpfile.Write(configYaml); err != nil {
-			t.Fatal(err)
-		}
-		// We need Close() here since we read the tmpfile later in the test.
-		if err := tmpfile.Close(); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	as := []string{"kmgm", "--non-interactive", "--verbose", "--basedir", basedir}
-	if configYaml != nil {
-		as = append(as, "--config", tmpfile.Name())
-	}
-	as = append(as, args...)
-	err := app.RunContext(ctx, as)
-
-	t.Logf("stdout: %s", stdoutBuf.String())
-	t.Logf("stderr: %s", stderrBuf.String())
-	for _, l := range logs.All() {
-		t.Logf("%+v", l)
-	}
-	return logs, err
-}
-
-func expectLogMessage(t *testing.T, logs *observer.ObservedLogs, expectedRE string) {
-	t.Helper()
-
-	re := regexp.MustCompile(expectedRE)
-	for _, l := range logs.All() {
-		if re.MatchString(l.Message) {
-			return
-		}
-	}
-
-	t.Errorf("Could not find a log line that matches %s", expectedRE)
-}
-
-func expectErrMessage(t *testing.T, err error, expectedRE string) {
-	t.Helper()
-
-	if err == nil {
-		t.Errorf("No error occured while expecting error message that match %s", expectedRE)
-		return
-	}
-
-	re := regexp.MustCompile(expectedRE)
-
-	msg := err.Error()
-	if re.MatchString(msg) {
-		return
-	}
-
-	t.Errorf("Error message %q doesn't match %s", msg, expectedRE)
-}
-
-func expectErr(t *testing.T, actual, expected error) {
-	t.Helper()
-
-	if errors.Is(actual, expected) {
-		return
-	}
-	if expected == nil {
-		t.Errorf("Expected no error but got error: %v", actual)
-		return
-	}
-	t.Errorf("Expected err %v, but got err: %v", expected, actual)
-}
-
 func TestSetup_NoArgs(t *testing.T) {
-	basedir, teardown := prepareBasedir(t)
+	basedir, teardown := testutils.PrepareBasedir(t)
 	t.Cleanup(teardown)
 
-	logs, err := runKmgm(t, context.Background(), basedir, nil, []string{"setup"}, nowDefault)
-	expectErr(t, err, nil)
-	expectLogMessage(t, logs, "CA setup successfully completed")
+	logs, err := testkmgm.Run(t, context.Background(), basedir, nil, []string{"setup"}, testkmgm.NowDefault)
+	testutils.ExpectErr(t, err, nil)
+	testutils.ExpectLogMessage(t, logs, "CA setup successfully completed")
 }
 
 func TestSetup_EmptyConfig(t *testing.T) {
-	basedir, teardown := prepareBasedir(t)
+	basedir, teardown := testutils.PrepareBasedir(t)
 	t.Cleanup(teardown)
 
 	spaces := []byte(" \t\n")
-	logs, err := runKmgm(t, context.Background(), basedir, spaces, []string{"setup"}, nowDefault)
-	expectErrMessage(t, err, `was empty$`)
+	logs, err := testkmgm.Run(t, context.Background(), basedir, spaces, []string{"setup"}, testkmgm.NowDefault)
+	testutils.ExpectErrMessage(t, err, `was empty$`)
 	_ = logs
 }
 
 func TestSetup_Default(t *testing.T) {
-	basedir, teardown := prepareBasedir(t)
+	basedir, teardown := testutils.PrepareBasedir(t)
 	t.Cleanup(teardown)
 
 	yaml := []byte(`
@@ -214,13 +87,13 @@ setup:
     commonName: test
 `)
 
-	logs, err := runKmgm(t, context.Background(), basedir, yaml, []string{"setup"}, nowDefault)
-	expectErr(t, err, nil)
-	expectLogMessage(t, logs, "CA setup successfully completed")
+	logs, err := testkmgm.Run(t, context.Background(), basedir, yaml, []string{"setup"}, testkmgm.NowDefault)
+	testutils.ExpectErr(t, err, nil)
+	testutils.ExpectLogMessage(t, logs, "CA setup successfully completed")
 }
 
 func TestSetup_NoDefault(t *testing.T) {
-	basedir, teardown := prepareBasedir(t)
+	basedir, teardown := testutils.PrepareBasedir(t)
 	t.Cleanup(teardown)
 
 	yaml := []byte(`
@@ -234,9 +107,9 @@ setup:
   validity: farfuture
 `)
 
-	logs, err := runKmgm(t, context.Background(), basedir, yaml, []string{"setup"}, nowDefault)
-	expectErr(t, err, nil)
-	expectLogMessage(t, logs, "CA setup successfully completed")
+	logs, err := testkmgm.Run(t, context.Background(), basedir, yaml, []string{"setup"}, testkmgm.NowDefault)
+	testutils.ExpectErr(t, err, nil)
+	testutils.ExpectLogMessage(t, logs, "CA setup successfully completed")
 
 	s := readCASubject(t, basedir)
 
@@ -245,7 +118,7 @@ setup:
 	}
 }
 func TestSetup_NoDefault_NoKeyType(t *testing.T) {
-	basedir, teardown := prepareBasedir(t)
+	basedir, teardown := testutils.PrepareBasedir(t)
 	t.Cleanup(teardown)
 
 	yaml := []byte(`
@@ -258,18 +131,18 @@ setup:
   validity: farfuture
 `)
 
-	logs, err := runKmgm(t, context.Background(), basedir, yaml, []string{"setup"}, nowDefault)
+	logs, err := testkmgm.Run(t, context.Background(), basedir, yaml, []string{"setup"}, testkmgm.NowDefault)
 	// FIXME[P1]: Better error message
-	expectErrMessage(t, err, "Unknown key type: any")
+	testutils.ExpectErrMessage(t, err, "Unknown key type: any")
 	_ = logs
 }
 
 func TestSetup_Flags(t *testing.T) {
-	basedir, teardown := prepareBasedir(t)
+	basedir, teardown := testutils.PrepareBasedir(t)
 	t.Cleanup(teardown)
 
-	logs, err := runKmgm(t, context.Background(), basedir, nil, []string{"setup", "--country", "JP"}, nowDefault)
-	expectErr(t, err, nil)
+	logs, err := testkmgm.Run(t, context.Background(), basedir, nil, []string{"setup", "--country", "JP"}, testkmgm.NowDefault)
+	testutils.ExpectErr(t, err, nil)
 	_ = logs
 
 	s := readCASubject(t, basedir)
@@ -289,11 +162,11 @@ func TestSetup_Flags(t *testing.T) {
 }
 
 func TestSetup_NoDefault_Flags(t *testing.T) {
-	basedir, teardown := prepareBasedir(t)
+	basedir, teardown := testutils.PrepareBasedir(t)
 	t.Cleanup(teardown)
 
-	logs, err := runKmgm(t, context.Background(), basedir, nil, []string{"--no-default", "setup", "--country", "JP", "--key-type", "rsa", "--validity", "7d"}, nowDefault)
-	expectErr(t, err, nil)
+	logs, err := testkmgm.Run(t, context.Background(), basedir, nil, []string{"--no-default", "setup", "--country", "JP", "--key-type", "rsa", "--validity", "7d"}, testkmgm.NowDefault)
+	testutils.ExpectErr(t, err, nil)
 	_ = logs
 
 	s := readCASubject(t, basedir)
@@ -312,36 +185,19 @@ func TestSetup_NoDefault_Flags(t *testing.T) {
 }
 
 func TestIssue_NoCA(t *testing.T) {
-	basedir, teardown := prepareBasedir(t)
+	basedir, teardown := testutils.PrepareBasedir(t)
 	t.Cleanup(teardown)
 
-	logs, err := runKmgm(t, context.Background(), basedir, nil, []string{"issue"}, nowDefault)
-	expectErr(t, err, setup.CantRunInteractiveCASetupErr)
-	_ = logs //expectLogMessage(t, logs, "")
-}
-
-func testEnv(t *testing.T, basedir string, mockNow time.Time) *action.Environment {
-	stor, err := storage.New(basedir)
-	if err != nil {
-		t.Fatalf("storage.New: %v", err)
-	}
-
-	fe := &frontend.NonInteractive{
-		Logger: zap.L(),
-	}
-
-	env, err := action.NewEnvironment(fe, stor)
-	env.Frontend = &frontend.NonInteractive{Logger: zap.L()}
-	env.NowImpl = mockNowImpl(mockNow)
-
-	return env
+	logs, err := testkmgm.Run(t, context.Background(), basedir, nil, []string{"issue"}, testkmgm.NowDefault)
+	testutils.ExpectErr(t, err, setup.CantRunInteractiveCASetupErr)
+	_ = logs //testutils.ExpectLogMessage(t, logs, "")
 }
 
 func setupCA(t *testing.T, basedir string) {
 	t.Helper()
 
 	mockNow := time.Date(2020, time.January, 1, 0, 0, 0, 0, time.UTC)
-	env := testEnv(t, basedir, mockNow)
+	env := testkmgm.Env(t, basedir, mockNow)
 
 	cfg := &setupa.Config{
 		Subject: &dname.Config{
@@ -366,15 +222,15 @@ func setupCA(t *testing.T, basedir string) {
 }
 
 func TestSetup_AlreadyExists(t *testing.T) {
-	basedir, teardown := prepareBasedir(t)
+	basedir, teardown := testutils.PrepareBasedir(t)
 	t.Cleanup(teardown)
 
 	setupCA(t, basedir)
 
 	t.Run("Default", func(t *testing.T) {
-		logs, err := runKmgm(t, context.Background(), basedir, nil, []string{"setup"}, nowDefault)
-		expectErr(t, err, nil)
-		expectLogMessage(t, logs, "already has a CA setup.")
+		logs, err := testkmgm.Run(t, context.Background(), basedir, nil, []string{"setup"}, testkmgm.NowDefault)
+		testutils.ExpectErr(t, err, nil)
+		testutils.ExpectLogMessage(t, logs, "already has a CA setup.")
 	})
 
 	t.Run("NoDefault_MatchingConfig", func(t *testing.T) {
@@ -394,9 +250,9 @@ func TestSetup_AlreadyExists(t *testing.T) {
 
       noDefault: true
       `)
-		logs, err := runKmgm(t, context.Background(), basedir, yaml, []string{"setup"}, nowDefault)
-		expectErr(t, err, nil)
-		expectLogMessage(t, logs, "already has a CA setup.")
+		logs, err := testkmgm.Run(t, context.Background(), basedir, yaml, []string{"setup"}, testkmgm.NowDefault)
+		testutils.ExpectErr(t, err, nil)
+		testutils.ExpectLogMessage(t, logs, "already has a CA setup.")
 	})
 
 	t.Run("NoDefault_IncompatibleSubject", func(t *testing.T) {
@@ -416,8 +272,8 @@ func TestSetup_AlreadyExists(t *testing.T) {
 
       noDefault: true
       `)
-		_, err := runKmgm(t, context.Background(), basedir, yaml, []string{"setup"}, nowDefault)
-		expectErr(t, err, setup.IncompatibleCertErr{})
+		_, err := testkmgm.Run(t, context.Background(), basedir, yaml, []string{"setup"}, testkmgm.NowDefault)
+		testutils.ExpectErr(t, err, setup.IncompatibleCertErr{})
 	})
 
 	t.Run("NoDefault_IncompatibleKeyType", func(t *testing.T) {
@@ -437,25 +293,25 @@ func TestSetup_AlreadyExists(t *testing.T) {
 
       noDefault: true
       `)
-		_, err := runKmgm(t, context.Background(), basedir, yaml, []string{"setup"}, nowDefault)
-		expectErr(t, err, setup.IncompatibleCertErr{})
+		_, err := testkmgm.Run(t, context.Background(), basedir, yaml, []string{"setup"}, testkmgm.NowDefault)
+		testutils.ExpectErr(t, err, setup.IncompatibleCertErr{})
 	})
 }
 
 func TestIssue_Default(t *testing.T) {
-	basedir, teardown := prepareBasedir(t)
+	basedir, teardown := testutils.PrepareBasedir(t)
 	t.Cleanup(teardown)
 
 	setupCA(t, basedir)
 
 	certPath := filepath.Join(basedir, "issue.cert.pem")
-	logs, err := runKmgm(t, context.Background(), basedir, nil, []string{"issue",
+	logs, err := testkmgm.Run(t, context.Background(), basedir, nil, []string{"issue",
 		"--priv", filepath.Join(basedir, "issue.priv.pem"),
 		"--cert", certPath,
 		"--cn", "leaf_CN",
-	}, nowDefault)
-	expectErr(t, err, nil)
-	expectLogMessage(t, logs, "Generating certificate... Done.")
+	}, testkmgm.NowDefault)
+	testutils.ExpectErr(t, err, nil)
+	testutils.ExpectLogMessage(t, logs, "Generating certificate... Done.")
 
 	cert, err := storage.ReadCertificateFile(certPath)
 	if err != nil {
@@ -469,7 +325,7 @@ func TestIssue_Default(t *testing.T) {
 }
 
 func TestIssue_Yaml(t *testing.T) {
-	basedir, teardown := prepareBasedir(t)
+	basedir, teardown := testutils.PrepareBasedir(t)
 	t.Cleanup(teardown)
 
 	setupCA(t, basedir)
@@ -487,12 +343,12 @@ noDefault: true
 `)
 
 	certPath := filepath.Join(basedir, "issue.cert.pem")
-	logs, err := runKmgm(t, context.Background(), basedir, yaml, []string{"issue",
+	logs, err := testkmgm.Run(t, context.Background(), basedir, yaml, []string{"issue",
 		"--priv", filepath.Join(basedir, "issue.priv.pem"),
 		"--cert", certPath,
-	}, nowDefault)
-	expectErr(t, err, nil)
-	expectLogMessage(t, logs, "Generating certificate... Done.")
+	}, testkmgm.NowDefault)
+	testutils.ExpectErr(t, err, nil)
+	testutils.ExpectLogMessage(t, logs, "Generating certificate... Done.")
 
 	cert, err := storage.ReadCertificateFile(certPath)
 	if err != nil {
@@ -506,7 +362,7 @@ noDefault: true
 }
 
 func TestIssue_WrongKeyType(t *testing.T) {
-	basedir, teardown := prepareBasedir(t)
+	basedir, teardown := testutils.PrepareBasedir(t)
 	t.Cleanup(teardown)
 
 	setupCA(t, basedir)
@@ -536,13 +392,13 @@ privateKeyPath: %s
 noDefault: true
 `, certPath, privPath))
 
-	logs, err := runKmgm(t, context.Background(), basedir, yaml, []string{"issue"}, nowDefault)
-	expectErr(t, err, wcrypto.UnexpectedKeyTypeErr{})
+	logs, err := testkmgm.Run(t, context.Background(), basedir, yaml, []string{"issue"}, testkmgm.NowDefault)
+	testutils.ExpectErr(t, err, wcrypto.UnexpectedKeyTypeErr{})
 	_ = logs
 }
 
 func TestIssue_UseExistingKey(t *testing.T) {
-	basedir, teardown := prepareBasedir(t)
+	basedir, teardown := testutils.PrepareBasedir(t)
 	t.Cleanup(teardown)
 
 	setupCA(t, basedir)
@@ -577,9 +433,9 @@ privateKeyPath: %s
 noDefault: true
 `, certPath, privPath))
 
-	logs, err := runKmgm(t, context.Background(), basedir, yaml, []string{"issue"}, nowDefault)
-	expectErr(t, err, nil)
-	expectLogMessage(t, logs, "Generating certificate... Done.")
+	logs, err := testkmgm.Run(t, context.Background(), basedir, yaml, []string{"issue"}, testkmgm.NowDefault)
+	testutils.ExpectErr(t, err, nil)
+	testutils.ExpectLogMessage(t, logs, "Generating certificate... Done.")
 
 	cert, err := storage.ReadCertificateFile(certPath)
 	if err != nil {
@@ -603,7 +459,7 @@ func setupCertAtPath(t *testing.T, basedir string, pub crypto.PublicKey, certPat
 	t.Helper()
 
 	mockNow := time.Date(2020, time.February, 1, 0, 0, 0, 0, time.UTC)
-	env := testEnv(t, basedir, mockNow)
+	env := testkmgm.Env(t, basedir, mockNow)
 
 	cfg := &issuea.Config{
 		Subject: &dname.Config{
@@ -641,7 +497,7 @@ func setupCert(t *testing.T, basedir string, pub crypto.PublicKey) string {
 }
 
 func TestIssue_RenewCert_NoDefault(t *testing.T) {
-	basedir, teardown := prepareBasedir(t)
+	basedir, teardown := testutils.PrepareBasedir(t)
 	t.Cleanup(teardown)
 
 	setupCA(t, basedir)
@@ -678,8 +534,8 @@ func TestIssue_RenewCert_NoDefault(t *testing.T) {
       noDefault: true
       `, certPath, privPath))
 
-		logs, err := runKmgm(t, context.Background(), basedir, yaml, []string{"issue"}, nowDefault)
-		expectErr(t, err, issue.IncompatibleCertErr{})
+		logs, err := testkmgm.Run(t, context.Background(), basedir, yaml, []string{"issue"}, testkmgm.NowDefault)
+		testutils.ExpectErr(t, err, issue.IncompatibleCertErr{})
 		_ = logs
 	})
 
@@ -700,8 +556,8 @@ func TestIssue_RenewCert_NoDefault(t *testing.T) {
       noDefault: true
       `, certPath, privPath))
 
-		logs, err := runKmgm(t, context.Background(), basedir, yaml, []string{"issue"}, nowDefault)
-		expectErr(t, err, issue.IncompatibleCertErr{})
+		logs, err := testkmgm.Run(t, context.Background(), basedir, yaml, []string{"issue"}, testkmgm.NowDefault)
+		testutils.ExpectErr(t, err, issue.IncompatibleCertErr{})
 		_ = logs
 	})
 
@@ -728,8 +584,8 @@ func TestIssue_RenewCert_NoDefault(t *testing.T) {
       noDefault: true
       `, certPath, privPath))
 
-		logs, err := runKmgm(t, context.Background(), basedir, yaml, []string{"issue"}, nowDefault)
-		expectErr(t, err, issue.IncompatibleCertErr{})
+		logs, err := testkmgm.Run(t, context.Background(), basedir, yaml, []string{"issue"}, testkmgm.NowDefault)
+		testutils.ExpectErr(t, err, issue.IncompatibleCertErr{})
 		_ = logs
 	})
 
@@ -759,9 +615,9 @@ func TestIssue_RenewCert_NoDefault(t *testing.T) {
       noDefault: true
       `, certPath, privPath))
 
-		logs, err := runKmgm(t, context.Background(), basedir, yaml, []string{"issue"}, nowDefault)
-		expectErr(t, err, nil)
-		expectLogMessage(t, logs, "Generating certificate... Done.")
+		logs, err := testkmgm.Run(t, context.Background(), basedir, yaml, []string{"issue"}, testkmgm.NowDefault)
+		testutils.ExpectErr(t, err, nil)
+		testutils.ExpectLogMessage(t, logs, "Generating certificate... Done.")
 
 		cert, err := storage.ReadCertificateFile(certPath)
 		if err != nil {
@@ -771,7 +627,7 @@ func TestIssue_RenewCert_NoDefault(t *testing.T) {
 		if err := wcrypto.VerifyPublicKeyMatch(cert.PublicKey, pub); err != nil {
 			t.Errorf("VerifyPublicKey: %v", err)
 		}
-		if nowDefault.Sub(cert.NotBefore) > time.Hour {
+		if testkmgm.NowDefault.Sub(cert.NotBefore) > time.Hour {
 			t.Errorf("cert.NotBefore not updated. Renew failed.")
 		}
 	})
@@ -805,8 +661,8 @@ func TestIssue_RenewCert_NoDefault(t *testing.T) {
       `, certPath, privPath))
 
 		now := time.Date(2020, time.February, 2, 0, 0, 0, 0, time.UTC)
-		logs, err := runKmgm(t, context.Background(), basedir, yaml, []string{"issue"}, now)
-		expectErr(t, err, issue.CertStillValidErr{})
+		logs, err := testkmgm.Run(t, context.Background(), basedir, yaml, []string{"issue"}, now)
+		testutils.ExpectErr(t, err, issue.CertStillValidErr{})
 		if ec := main.ExitCodeOfError(err); ec != 10 {
 			t.Errorf("unexpected ec: %d", ec)
 		}
@@ -850,8 +706,8 @@ func TestIssue_RenewCert_NoDefault(t *testing.T) {
       `, certPath, privPath))
 
 		now := time.Date(2020, time.February, 10, 0, 0, 0, 0, time.UTC)
-		logs, err := runKmgm(t, context.Background(), basedir, yaml, []string{"issue"}, now)
-		expectErr(t, err, nil)
+		logs, err := testkmgm.Run(t, context.Background(), basedir, yaml, []string{"issue"}, now)
+		testutils.ExpectErr(t, err, nil)
 		_ = logs
 
 		cert, err := storage.ReadCertificateFile(certPath)
@@ -865,7 +721,7 @@ func TestIssue_RenewCert_NoDefault(t *testing.T) {
 }
 
 func Test_NameConstraints(t *testing.T) {
-	basedir, teardown := prepareBasedir(t)
+	basedir, teardown := testutils.PrepareBasedir(t)
 	t.Cleanup(teardown)
 
 	yaml := []byte(`
@@ -884,9 +740,9 @@ setup:
   - -bad.my.example
 `)
 
-	logs, err := runKmgm(t, context.Background(), basedir, yaml, []string{"setup"}, nowDefault)
-	expectErr(t, err, nil)
-	expectLogMessage(t, logs, "CA setup successfully completed")
+	logs, err := testkmgm.Run(t, context.Background(), basedir, yaml, []string{"setup"}, testkmgm.NowDefault)
+	testutils.ExpectErr(t, err, nil)
+	testutils.ExpectLogMessage(t, logs, "CA setup successfully completed")
 
 	cacert := readCACert(t, basedir)
 	certpool := x509.NewCertPool()
@@ -913,8 +769,8 @@ privateKeyPath: %s
 
 noDefault: true
 `, certPath, privPath))
-		logs, err = runKmgm(t, context.Background(), basedir, issueYaml, []string{"issue"}, nowDefault)
-		expectErr(t, err, nil)
+		logs, err = testkmgm.Run(t, context.Background(), basedir, issueYaml, []string{"issue"}, testkmgm.NowDefault)
+		testutils.ExpectErr(t, err, nil)
 		_ = logs
 
 		cert, err := storage.ReadCertificateFile(certPath)
@@ -925,7 +781,7 @@ noDefault: true
 		if _, err := cert.Verify(x509.VerifyOptions{
 			DNSName:     "my.example",
 			Roots:       certpool,
-			CurrentTime: nowDefault,
+			CurrentTime: testkmgm.NowDefault,
 		}); err != nil {
 			t.Errorf("cert verify: %v", err)
 		}
@@ -933,7 +789,7 @@ noDefault: true
 		if _, err := cert.Verify(x509.VerifyOptions{
 			DNSName:     "192.168.10.123",
 			Roots:       certpool,
-			CurrentTime: nowDefault,
+			CurrentTime: testkmgm.NowDefault,
 		}); err != nil {
 			t.Errorf("cert verify: %v", err)
 		}
