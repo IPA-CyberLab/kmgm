@@ -40,3 +40,10 @@ func MarshalCertificateDer(certDer []byte) []byte {
 		Bytes: certDer,
 	})
 }
+
+func MarshalCertificateRequestDer(der []byte) []byte {
+	return pem.EncodeToMemory(&pem.Block{
+		Type:  CertificateRequestPemType,
+		Bytes: der,
+	})
+}
