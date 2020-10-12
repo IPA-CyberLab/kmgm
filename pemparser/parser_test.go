@@ -25,7 +25,12 @@ Lv7aCvdGIifcy7qV0Slxjg6YbDtai0MGogOvsxSFsSzUmwGnfDGb9Q9nhog=
 `
 
 func Test_ParseCertificateRequest(t *testing.T) {
-	req, err := pemparser.ParseCertificateRequest([]byte(TestCSR))
+	req, err := pemparser.ParseCertificateRequest([]byte{})
+	if err == nil {
+		t.Errorf("Expected err for parsing empty input")
+	}
+
+	req, err = pemparser.ParseCertificateRequest([]byte(TestCSR))
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}

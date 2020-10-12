@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
+	"fmt"
 )
 
 func ForeachPemBlock(pemText []byte, f func(*pem.Block) error) error {
@@ -39,6 +40,10 @@ func ParseCertificateRequest(pemText []byte) (req *x509.CertificateRequest, err 
 		req, err = x509.ParseCertificateRequest(block.Bytes)
 		return err
 	})
+	if req == nil {
+		err = fmt.Errorf("Target pem block %q not found.", CertificateRequestPemType)
+		return
+	}
 	return
 }
 
