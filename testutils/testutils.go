@@ -18,15 +18,16 @@ func init() {
 	}
 }
 
-func PrepareBasedir(t *testing.T) (string, func()) {
+func PrepareBasedir(t *testing.T) string {
 	t.Helper()
 
 	basedir, err := ioutil.TempDir("", "kmgm-testdir-*")
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { os.RemoveAll(basedir) })
 
-	return basedir, func() { os.RemoveAll(basedir) }
+	return basedir
 }
 
 func ExpectLogMessage(t *testing.T, logs *observer.ObservedLogs, expectedRE string) {

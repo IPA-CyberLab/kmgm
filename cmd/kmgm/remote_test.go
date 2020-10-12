@@ -10,15 +10,14 @@ import (
 )
 
 func TestServe_Noop(t *testing.T) {
-	_, _ = testserver.RunKmgmServe(t)
+	_ = testserver.Run(t)
 }
 
 func TestBootstrap(t *testing.T) {
-	addrPort, cacertPath := testserver.RunKmgmServe(t)
+	ts := testserver.Run(t)
 
-	basedir, teardown := testutils.PrepareBasedir(t)
-	t.Cleanup(teardown)
-	logs, err := testkmgm.Run(t, context.Background(), basedir, nil, []string{"client", "--server", addrPort, "--cacert", cacertPath, "--token", testserver.BootstrapToken, "bootstrap"}, testkmgm.NowDefault)
+	basedir := testutils.PrepareBasedir(t)
+	logs, err := testkmgm.Run(t, context.Background(), basedir, nil, []string{"client", "--server", ts.AddrPort, "--cacert", ts.CACertPath, "--token", testserver.BootstrapToken, "bootstrap"}, testkmgm.NowDefault)
 	testutils.ExpectErr(t, err, nil)
 	testutils.ExpectLogMessage(t, logs, "Wrote server connection info to file ")
 }

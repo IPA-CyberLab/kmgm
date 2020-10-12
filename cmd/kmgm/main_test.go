@@ -57,8 +57,7 @@ func readCASubject(t *testing.T, basedir string) pkix.Name {
 }
 
 func TestSetup_NoArgs(t *testing.T) {
-	basedir, teardown := testutils.PrepareBasedir(t)
-	t.Cleanup(teardown)
+	basedir := testutils.PrepareBasedir(t)
 
 	logs, err := testkmgm.Run(t, context.Background(), basedir, nil, []string{"setup"}, testkmgm.NowDefault)
 	testutils.ExpectErr(t, err, nil)
@@ -66,8 +65,7 @@ func TestSetup_NoArgs(t *testing.T) {
 }
 
 func TestSetup_EmptyConfig(t *testing.T) {
-	basedir, teardown := testutils.PrepareBasedir(t)
-	t.Cleanup(teardown)
+	basedir := testutils.PrepareBasedir(t)
 
 	spaces := []byte(" \t\n")
 	logs, err := testkmgm.Run(t, context.Background(), basedir, spaces, []string{"setup"}, testkmgm.NowDefault)
@@ -76,8 +74,7 @@ func TestSetup_EmptyConfig(t *testing.T) {
 }
 
 func TestSetup_Default(t *testing.T) {
-	basedir, teardown := testutils.PrepareBasedir(t)
-	t.Cleanup(teardown)
+	basedir := testutils.PrepareBasedir(t)
 
 	yaml := []byte(`
 noDefault: false
@@ -93,8 +90,7 @@ setup:
 }
 
 func TestSetup_NoDefault(t *testing.T) {
-	basedir, teardown := testutils.PrepareBasedir(t)
-	t.Cleanup(teardown)
+	basedir := testutils.PrepareBasedir(t)
 
 	yaml := []byte(`
 noDefault: true
@@ -118,8 +114,7 @@ setup:
 	}
 }
 func TestSetup_NoDefault_NoKeyType(t *testing.T) {
-	basedir, teardown := testutils.PrepareBasedir(t)
-	t.Cleanup(teardown)
+	basedir := testutils.PrepareBasedir(t)
 
 	yaml := []byte(`
 noDefault: true
@@ -138,8 +133,7 @@ setup:
 }
 
 func TestSetup_Flags(t *testing.T) {
-	basedir, teardown := testutils.PrepareBasedir(t)
-	t.Cleanup(teardown)
+	basedir := testutils.PrepareBasedir(t)
 
 	logs, err := testkmgm.Run(t, context.Background(), basedir, nil, []string{"setup", "--country", "JP"}, testkmgm.NowDefault)
 	testutils.ExpectErr(t, err, nil)
@@ -162,8 +156,7 @@ func TestSetup_Flags(t *testing.T) {
 }
 
 func TestSetup_NoDefault_Flags(t *testing.T) {
-	basedir, teardown := testutils.PrepareBasedir(t)
-	t.Cleanup(teardown)
+	basedir := testutils.PrepareBasedir(t)
 
 	logs, err := testkmgm.Run(t, context.Background(), basedir, nil, []string{"--no-default", "setup", "--country", "JP", "--key-type", "rsa", "--validity", "7d"}, testkmgm.NowDefault)
 	testutils.ExpectErr(t, err, nil)
@@ -185,8 +178,7 @@ func TestSetup_NoDefault_Flags(t *testing.T) {
 }
 
 func TestIssue_NoCA(t *testing.T) {
-	basedir, teardown := testutils.PrepareBasedir(t)
-	t.Cleanup(teardown)
+	basedir := testutils.PrepareBasedir(t)
 
 	logs, err := testkmgm.Run(t, context.Background(), basedir, nil, []string{"issue"}, testkmgm.NowDefault)
 	testutils.ExpectErr(t, err, setup.CantRunInteractiveCASetupErr)
@@ -222,8 +214,7 @@ func setupCA(t *testing.T, basedir string) {
 }
 
 func TestSetup_AlreadyExists(t *testing.T) {
-	basedir, teardown := testutils.PrepareBasedir(t)
-	t.Cleanup(teardown)
+	basedir := testutils.PrepareBasedir(t)
 
 	setupCA(t, basedir)
 
@@ -299,8 +290,7 @@ func TestSetup_AlreadyExists(t *testing.T) {
 }
 
 func TestIssue_Default(t *testing.T) {
-	basedir, teardown := testutils.PrepareBasedir(t)
-	t.Cleanup(teardown)
+	basedir := testutils.PrepareBasedir(t)
 
 	setupCA(t, basedir)
 
@@ -325,8 +315,7 @@ func TestIssue_Default(t *testing.T) {
 }
 
 func TestIssue_Yaml(t *testing.T) {
-	basedir, teardown := testutils.PrepareBasedir(t)
-	t.Cleanup(teardown)
+	basedir := testutils.PrepareBasedir(t)
 
 	setupCA(t, basedir)
 
@@ -362,8 +351,7 @@ noDefault: true
 }
 
 func TestIssue_WrongKeyType(t *testing.T) {
-	basedir, teardown := testutils.PrepareBasedir(t)
-	t.Cleanup(teardown)
+	basedir := testutils.PrepareBasedir(t)
 
 	setupCA(t, basedir)
 
@@ -398,8 +386,7 @@ noDefault: true
 }
 
 func TestIssue_UseExistingKey(t *testing.T) {
-	basedir, teardown := testutils.PrepareBasedir(t)
-	t.Cleanup(teardown)
+	basedir := testutils.PrepareBasedir(t)
 
 	setupCA(t, basedir)
 
@@ -497,8 +484,7 @@ func setupCert(t *testing.T, basedir string, pub crypto.PublicKey) string {
 }
 
 func TestIssue_RenewCert_NoDefault(t *testing.T) {
-	basedir, teardown := testutils.PrepareBasedir(t)
-	t.Cleanup(teardown)
+	basedir := testutils.PrepareBasedir(t)
 
 	setupCA(t, basedir)
 
@@ -721,8 +707,7 @@ func TestIssue_RenewCert_NoDefault(t *testing.T) {
 }
 
 func Test_NameConstraints(t *testing.T) {
-	basedir, teardown := testutils.PrepareBasedir(t)
-	t.Cleanup(teardown)
+	basedir := testutils.PrepareBasedir(t)
 
 	yaml := []byte(`
 noDefault: true
