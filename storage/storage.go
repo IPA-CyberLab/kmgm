@@ -320,15 +320,15 @@ func ReadFileOrInlineText(p string) ([]byte, error) {
 func ReadCertificateFile(p string) (*x509.Certificate, error) {
 	bs, err := ReadFileOrInlineText(p)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to read CA cert: %w", err)
+		return nil, fmt.Errorf("Failed to read cert file: %w", err)
 	}
 	cs, err := pemparser.ParseCertificates(bs)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to parse CA cert %q: %w", p, err)
+		return nil, fmt.Errorf("Failed to parse cert file %q: %w", p, err)
 	}
 	if len(cs) != 1 {
 		// FIXME[P-]: use the last one?
-		return nil, fmt.Errorf("%d CA certs found in %q", len(cs), p)
+		return nil, fmt.Errorf("%d certs found in %q", len(cs), p)
 	}
 	return cs[0], nil
 }
