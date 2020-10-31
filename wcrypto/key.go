@@ -19,13 +19,15 @@ import (
 	"go.uber.org/zap"
 )
 
+var ErrKeyAnyForGenerateKey = errors.New("KeyAny is not a valid keytype for wcrypto.GenerateKey") //nolint
+
 func GenerateKey(randr io.Reader, ktype KeyType, usage string, logger *zap.Logger) (crypto.PrivateKey, error) {
 	slog := logger.Sugar()
 	start := time.Now()
 
 	slog.Infow("Generating key...", "usage", usage, "type", ktype)
 	defer func() {
-		slog.Infow("Generating key... Done.", "usage", usage, "type", ktype, "took", time.Now().Sub(start))
+		slog.Infow("Generating key... Done.", "usage", usage, "type", ktype, "took", time.Since(start))
 	}()
 
 	switch ktype {
@@ -43,8 +45,11 @@ func GenerateKey(randr io.Reader, ktype KeyType, usage string, logger *zap.Logge
 		}
 		return priv, nil
 
+	case KeyAny:
+		return nil, ErrKeyAnyForGenerateKey
+
 	default:
-		return nil, fmt.Errorf("Unknown key type: %v", ktype)
+		return nil, fmt.Errorf("unknown key type: %v", ktype)
 	}
 }
 
@@ -53,7 +58,7 @@ func ExtractPublicKey(priv crypto.PrivateKey) (crypto.PublicKey, error) {
 		Public() crypto.PublicKey
 	})
 	if !ok {
-		return nil, errors.New("Could not extract public key from private key.")
+		return nil, errors.New("could not extract public key from private key")
 	}
 	pub := privp.Public()
 	return pub, nil
@@ -63,7 +68,7 @@ func errTypeMismatch(a, b interface{}) error {
 	return fmt.Errorf("Type mismatch: %v and %v", reflect.TypeOf(a), reflect.TypeOf(b))
 }
 
-var ErrPublicKeyMismatch = errors.New("Public keys do not match.")
+var ErrPublicKeyMismatch = errors.New("public keys do not match")
 
 func VerifyPublicKeyMatch(a, b crypto.PublicKey) error {
 	switch at := a.(type) {

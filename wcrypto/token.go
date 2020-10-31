@@ -16,7 +16,7 @@ func GenBase64Token(randr io.Reader, logger *zap.Logger) (string, error) {
 
 	start := time.Now()
 	slog.Infow("Generating token...")
-	defer slog.Infow("Generating token... Done.", "took", time.Now().Sub(start))
+	defer slog.Infow("Generating token... Done.", "took", time.Since(start))
 
 	buf := make([]byte, TokenBitsLength/8)
 	if _, err := io.ReadFull(randr, buf); err != nil {

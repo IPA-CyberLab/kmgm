@@ -203,7 +203,7 @@ func (s *CAStatus) Error() string {
 	case NotCA:
 		str = fmt.Sprintf("Most likely the CA is not setup yet. No CA files found at %q", s.Profile.BaseDir)
 	case Broken:
-		str = "The CA is broken. Some of essential files are missing."
+		str = "The CA is broken. Some of the essential files are missing."
 	case Expired:
 		str = "The CA has an expired certificate."
 	}

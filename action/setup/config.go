@@ -12,7 +12,9 @@ import (
 )
 
 var (
-	ErrSubjectEmpty = errors.New("CA Subject must not be empty.")
+	ErrSubjectEmpty          = errors.New("CA Subject must not be empty")
+	ErrValidityPeriodExpired = errors.New("Declining to setup CA which expires within 30 seconds")
+	ErrKeyTypeAny            = errors.New("KeyType cannot be KeyAny, please specify a specific key algorithm such as KeyRSA4096")
 )
 
 type Config struct {
@@ -62,8 +64,6 @@ func (a *Config) CompatibleWith(b *Config) error {
 
 const expireThreshold = 30 * time.Second
 
-var ErrValidityPeriodExpired = errors.New("Declining to setup CA which expires within 30 seconds.")
-
 func (cfg *Config) Verify(now time.Time) error {
 	if err := cfg.Subject.Verify(); err != nil {
 		return fmt.Errorf("Subject.%w", err)
@@ -73,6 +73,9 @@ func (cfg *Config) Verify(now time.Time) error {
 	}
 	if cfg.Validity.GetNotAfter(now).Before(now.Add(expireThreshold)) {
 		return ErrValidityPeriodExpired
+	}
+	if cfg.KeyType == wcrypto.KeyAny {
+		return ErrKeyTypeAny
 	}
 
 	return nil

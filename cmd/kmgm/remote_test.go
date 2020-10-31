@@ -52,8 +52,8 @@ setup:
 			t.Fatalf("cert read: %v", err)
 		}
 
-		if cert.Issuer.CommonName != "myCA" {
-			t.Fatalf("unexpected cert issuer: %s", cert.Issuer.CommonName)
+		if cert.Issuer.String() != "CN=myCA,ST=California,C=US" {
+			t.Fatalf("unexpected cert issuer: %v", cert.Issuer)
 		}
 	})
 

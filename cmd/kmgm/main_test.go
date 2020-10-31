@@ -127,8 +127,7 @@ setup:
 `)
 
 	logs, err := testkmgm.Run(t, context.Background(), basedir, yaml, []string{"setup"}, testkmgm.NowDefault)
-	// FIXME[P1]: Better error message
-	testutils.ExpectErrMessage(t, err, "Unknown key type: any")
+	testutils.ExpectErr(t, err, setupa.ErrKeyTypeAny)
 	_ = logs
 }
 
