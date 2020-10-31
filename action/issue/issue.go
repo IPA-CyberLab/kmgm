@@ -14,6 +14,7 @@ import (
 	"github.com/IPA-CyberLab/kmgm/action"
 	"github.com/IPA-CyberLab/kmgm/consts"
 	"github.com/IPA-CyberLab/kmgm/pemparser"
+	"github.com/IPA-CyberLab/kmgm/storage"
 	"github.com/IPA-CyberLab/kmgm/storage/issuedb"
 	"github.com/IPA-CyberLab/kmgm/wcrypto"
 )
@@ -49,7 +50,24 @@ var (
 )
 
 func createCertificate(env *action.Environment, now time.Time, pub crypto.PublicKey, cfg *Config, cacert *x509.Certificate, capriv crypto.PrivateKey, serial int64) ([]byte, error) {
-	slog := env.Logger.Sugar()
+	pubkeyhash, err := wcrypto.PubKeyPinString(pub)
+	if err != nil {
+		pubkeyhash = fmt.Sprintf("Error: %v", err)
+	}
+	capubkeyhash, err := wcrypto.PubKeyPinString(cacert.PublicKey)
+	if err != nil {
+		capubkeyhash = fmt.Sprintf("Error: %v", err)
+	}
+
+	slog := env.Logger.Sugar().With(
+		"profile", env.ProfileName,
+		"subject", cfg.Subject.ToPkixName().String(),
+		"dnsnames", cfg.Names.DNSNames,
+		"ipaddrs", cfg.Names.IPAddrs,
+		"pubkeyhash", pubkeyhash,
+		"cacpubkeyhash", capubkeyhash,
+		"serial", serial,
+	)
 
 	start := time.Now()
 	slog.Info("Generating certificate...")
@@ -136,32 +154,35 @@ func Run(env *action.Environment, pub crypto.PublicKey, cfg *Config) ([]byte, er
 	profile, err := env.Profile()
 	if err != nil {
 		handledCounter.WithLabelValues(env.ProfileName, "GetProfileFailed").Inc()
-		return nil, err
+		return nil, fmt.Errorf("Failed to acquire profile: %w", err)
+	}
+	if st := profile.Status(start); st.Code != storage.ValidCA {
+		return nil, fmt.Errorf("Can't issue certificate from CA profile %q: %w", env.ProfileName, st)
 	}
 
 	db, err := issuedb.New(profile.IssueDBPath())
 	if err != nil {
 		handledCounter.WithLabelValues(env.ProfileName, "OpenIssueDBFailed").Inc()
-		return nil, err
+		return nil, fmt.Errorf("Failed to open issuedb: %w", err)
 	}
 
 	capriv, err := profile.ReadCAPrivateKey()
 	if err != nil {
 		handledCounter.WithLabelValues(env.ProfileName, "ReadPrivateKeyFailed").Inc()
-		return nil, err
+		return nil, fmt.Errorf("Failed to read CA private key: %w", err)
 	}
 
 	cacert, err := profile.ReadCACertificate()
 	if err != nil {
 		handledCounter.WithLabelValues(env.ProfileName, "ReadCACertificateFailed").Inc()
-		return nil, err
+		return nil, fmt.Errorf("Failed to read CA certificate: %w", err)
 	}
 
 	slog := env.Logger.Sugar()
 
 	if err := wcrypto.VerifyCACertAndKey(capriv, cacert, start); err != nil {
 		handledCounter.WithLabelValues(env.ProfileName, "VerifyCACertAndKeyFailed").Inc()
-		return nil, err
+		return nil, fmt.Errorf("Failed to verify CA certkey pair: %w", err)
 	}
 
 	var serial int64
@@ -171,7 +192,7 @@ func Run(env *action.Environment, pub crypto.PublicKey, cfg *Config) ([]byte, er
 		serial, err = db.AllocateSerialNumber(env.Randr)
 		if err != nil {
 			handledCounter.WithLabelValues(env.ProfileName, "AllocateSerialNumberFailed").Inc()
-			return nil, err
+			return nil, fmt.Errorf("Failed to allocate s/n: %w", err)
 		}
 		slog.Infof("Allocated sn: %v", serial)
 	}
