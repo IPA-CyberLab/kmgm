@@ -87,7 +87,7 @@ func Run(t *testing.T, ctx context.Context, basedir string, configYaml []byte, a
 	t.Logf("stdout: %s", stdoutBuf.String())
 	t.Logf("stderr: %s", stderrBuf.String())
 	for _, l := range logs.All() {
-		t.Logf("%+v", l)
+		t.Logf("🔒%+v", l)
 	}
 	return logs, err
 }

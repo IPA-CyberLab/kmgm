@@ -43,10 +43,13 @@ func (svc *Service) IssuePreflight(ctx context.Context, req *pb.IssuePreflightRe
 		return nil, grpc.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	_, err := svc.env.Storage.Profile(req.Profile)
+	profile, err := svc.env.Storage.Profile(req.Profile)
 	if err != nil {
 		slog.Infof("IssuePreflight: Storage.Profile(%q) returned err: %v", req.Profile, err)
 		return nil, grpc.Errorf(codes.NotFound, "Failed to access specified profile.")
+	}
+	if st := profile.Status(time.Now()); st.Code != storage.ValidCA {
+		return nil, grpc.Errorf(codes.Internal, "Can't issue certificate from CA profile %q: %v", req.Profile, st)
 	}
 
 	return &pb.IssuePreflightResponse{}, nil

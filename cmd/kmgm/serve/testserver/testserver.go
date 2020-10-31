@@ -23,6 +23,7 @@ type TestServer struct {
 	CACertPath string
 	CACert     *x509.Certificate
 	PubKeyHash string
+	Basedir    string
 }
 
 type option struct {
@@ -100,5 +101,6 @@ func Run(t *testing.T, tsos ...Option) *TestServer {
 		CACertPath: cacertPath,
 		CACert:     cacert,
 		PubKeyHash: pubkeyhash,
+		Basedir:    basedir,
 	}
 }
