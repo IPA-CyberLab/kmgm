@@ -27,7 +27,7 @@ func ForeachPemBlock(pemText []byte, f func(*pem.Block) error) error {
 var ErrMultipleCertificateRequestBlocks = errors.New("Found more than one CERTIFICATE REQUEST block")
 
 func ParseCertificateRequest(pemText []byte) (req *x509.CertificateRequest, err error) {
-	ForeachPemBlock(pemText, func(block *pem.Block) error {
+	err = ForeachPemBlock(pemText, func(block *pem.Block) error {
 		if block.Type != CertificateRequestPemType {
 			return nil
 		}
@@ -40,7 +40,7 @@ func ParseCertificateRequest(pemText []byte) (req *x509.CertificateRequest, err 
 		req, err = x509.ParseCertificateRequest(block.Bytes)
 		return err
 	})
-	if req == nil {
+	if err == nil && req == nil {
 		err = fmt.Errorf("Target pem block %q not found.", CertificateRequestPemType)
 		return
 	}

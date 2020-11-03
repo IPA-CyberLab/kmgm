@@ -1,12 +1,14 @@
 package pemparser_test
 
 import (
+	"encoding/asn1"
+	"errors"
 	"testing"
 
 	"github.com/IPA-CyberLab/kmgm/pemparser"
 )
 
-const TestCSR = `-----BEGIN CERTIFICATE REQUEST-----
+var TestCSR = []byte(`-----BEGIN CERTIFICATE REQUEST-----
 MIICmDCCAYACAQAwUzELMAkGA1UEBhMCSlAxDjAMBgNVBAgMBVRva3lvMSEwHwYD
 VQQKDBhJbnRlcm5ldCBXaWRnaXRzIFB0eSBMdGQxETAPBgNVBAMMCGhvZ2VmdWdh
 MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0f7/xMDop3WNJAYuWFaJ
@@ -22,15 +24,24 @@ uwIDAQABoAAwDQYJKoZIhvcNAQELBQADggEBAJXCcsaRXvx1T+AdOvF5aFElJ9tn
 X/8dzdW3bJ6aBNkt+mMFIk32veY0NKaflVo57FauPyD6/9d1PajYXsTMXL4O/c5j
 Lv7aCvdGIifcy7qV0Slxjg6YbDtai0MGogOvsxSFsSzUmwGnfDGb9Q9nhog=
 -----END CERTIFICATE REQUEST-----
-`
+`)
+
+var IncompleteCSR = []byte(`-----BEGIN CERTIFICATE REQUEST-----
+MIHzMIGaAgEAMAAwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAAQzH2cBP3lcXHwm
+451JhOmDRq1Y/ZbNgw00r5mSf5r9hqR/Xd+30QhiHOrCA7LfE0vKCNuidndDTH8Q
+95VrjM8ooDgwNgYJKoZIhvcNAQkOMSkwJzAYBgNVHREEETAPgg1lY2RzYS5leGFt
+cGxlMAsGA1UdDwQEAwIFoDAKBggqhkjOPQQDAgNIADBFAiEAsEvJuhNtieOyEmqN
+lXabDvu2IoDqCshBpwyjsvy+rTUCIAW/Dn80lqxR2YQiMYujLxP84EOPZfwY1e7p
+-----END CERTIFICATE REQUEST-----
+`)
 
 func Test_ParseCertificateRequest(t *testing.T) {
-	req, err := pemparser.ParseCertificateRequest([]byte{})
+	_, err := pemparser.ParseCertificateRequest([]byte{})
 	if err == nil {
 		t.Errorf("Expected err for parsing empty input")
 	}
 
-	req, err = pemparser.ParseCertificateRequest([]byte(TestCSR))
+	req, err := pemparser.ParseCertificateRequest(TestCSR)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -40,8 +51,14 @@ func Test_ParseCertificateRequest(t *testing.T) {
 	}
 
 	multipleCSRs := append([]byte(TestCSR), []byte(TestCSR)...)
-	req, err = pemparser.ParseCertificateRequest(multipleCSRs)
+	_, err = pemparser.ParseCertificateRequest(multipleCSRs)
 	if err != pemparser.ErrMultipleCertificateRequestBlocks {
 		t.Errorf("Unexpected error: %v", err)
+	}
+
+	_, err = pemparser.ParseCertificateRequest(IncompleteCSR)
+	var asnsynerr asn1.SyntaxError
+	if !errors.As(err, &asnsynerr) {
+		t.Errorf("Unexpected err when parsing incomplete csr pem: %v", err)
 	}
 }
