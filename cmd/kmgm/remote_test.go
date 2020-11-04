@@ -15,7 +15,7 @@ func TestServe_Noop(t *testing.T) {
 	_ = testserver.Run(t)
 }
 
-func Test(t *testing.T) {
+func TestServe_Issue(t *testing.T) {
 	ts := testserver.Run(t)
 	basedir := testutils.PrepareBasedir(t)
 
@@ -32,11 +32,13 @@ func Test(t *testing.T) {
 
 	t.Run("specify profile", func(t *testing.T) {
 		yaml := []byte(`
-noDefault: false
+noDefault: true
 
 setup:
   subject:
     commonName: myCA
+  validity: farfuture
+  keyType: ecdsa
 `)
 		logs, err := testkmgm.Run(t, context.Background(), ts.Basedir, yaml, []string{"--profile", "myprofile", "setup"}, testkmgm.NowDefault)
 		testutils.ExpectErr(t, err, nil)
@@ -52,7 +54,7 @@ setup:
 			t.Fatalf("cert read: %v", err)
 		}
 
-		if cert.Issuer.String() != "CN=myCA,ST=California,C=US" {
+		if cert.Issuer.String() != "CN=myCA" {
 			t.Fatalf("unexpected cert issuer: %v", cert.Issuer)
 		}
 	})

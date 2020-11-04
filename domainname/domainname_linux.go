@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-func DNSDomainname() (string, error) {
+func dnsdomainname() (string, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
 		return "", fmt.Errorf("os.Hostname: %w", err)

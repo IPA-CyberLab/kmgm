@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"testing"
 
+	"github.com/IPA-CyberLab/kmgm/domainname"
 	"github.com/IPA-CyberLab/kmgm/ipapi"
 	"go.uber.org/zap/zaptest/observer"
 )
@@ -16,6 +17,8 @@ func init() {
 		RegionName:  "California",
 		CountryCode: "US",
 	}
+
+	domainname.MockResult = "host.example"
 }
 
 func PrepareBasedir(t *testing.T) string {
