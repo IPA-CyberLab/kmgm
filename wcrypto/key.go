@@ -31,6 +31,13 @@ func GenerateKey(randr io.Reader, ktype KeyType, usage string, logger *zap.Logge
 	}()
 
 	switch ktype {
+	case KeyRSA2048:
+		priv, err := rsa.GenerateKey(randr, 2048)
+		if err != nil {
+			return nil, fmt.Errorf("rsa.GenerateKey: %w", err)
+		}
+		return priv, nil
+
 	case KeyRSA4096:
 		priv, err := rsa.GenerateKey(randr, 4096)
 		if err != nil {

@@ -14,6 +14,7 @@ const (
 	KeyAny KeyType = iota
 	KeyRSA4096
 	KeySECP256R1
+	KeyRSA2048
 )
 
 var DefaultKeyType = KeyRSA4096
@@ -27,6 +28,8 @@ func (kt KeyType) String() string {
 		return "rsa"
 	case KeySECP256R1:
 		return "ecdsa"
+	case KeyRSA2048:
+		return "rsa2048"
 	default:
 		return fmt.Sprintf("unknown_keytype%d", int(kt))
 	}
@@ -38,6 +41,8 @@ func KeyTypeFromString(s string) (KeyType, error) {
 		return KeyAny, nil
 	case "rsa":
 		return KeyRSA4096, nil
+	case "rsa2048":
+		return KeyRSA2048, nil
 	case "secp256r1", "ecdsa":
 		return KeySECP256R1, nil
 	default:
@@ -50,6 +55,8 @@ func KeyTypeOfPub(pub crypto.PublicKey) (KeyType, error) {
 	case *rsa.PublicKey:
 		bitlen := p.N.BitLen()
 		switch bitlen {
+		case 2048:
+			return KeyRSA2048, nil
 		case 4096:
 			return KeyRSA4096, nil
 		default:
