@@ -9,11 +9,9 @@ jobs:
     runs-on: ${{ matrix.platform }}
     steps:
     - name: Install Go
-      uses: actions/setup-go@v1
-      with:
-        go-version: 1.14.x
+      uses: actions/setup-go@v2
     - name: Checkout code
-      uses: actions/checkout@v1
+      uses: actions/checkout@v2
     - name: Test
       run: go test ./...
   release:
@@ -22,13 +20,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set up Go
-        uses: actions/setup-go@v1
-        with:
-          go-version: 1.14.x
+        uses: actions/setup-go@v2
       - name: Checkout
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v1
+        uses: goreleaser/goreleaser-action@v2
         with:
           version: latest
           args: release --rm-dist
