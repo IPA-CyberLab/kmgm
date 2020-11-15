@@ -10,6 +10,8 @@ jobs:
     steps:
     - name: Install Go
       uses: actions/setup-go@v2
+      with:
+        stable: false
     - name: Checkout code
       uses: actions/checkout@v2
     - name: Test
@@ -21,6 +23,8 @@ jobs:
     steps:
       - name: Set up Go
         uses: actions/setup-go@v2
+        with:
+          stable: false
       - name: Checkout
         uses: actions/checkout@v2
       - name: Run GoReleaser
