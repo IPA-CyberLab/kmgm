@@ -1,6 +1,6 @@
 module github.com/IPA-CyberLab/kmgm
 
-go 1.15.3
+go 1.15
 
 require (
 	cloud.google.com/go v0.57.0 // indirect
