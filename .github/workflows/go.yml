@@ -4,14 +4,13 @@ jobs:
   unit_tests:
     strategy:
       matrix:
-        # FIXME: Add macos after support
-        platform: [ubuntu-latest]
+        platform: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.platform }}
     steps:
     - name: Install Go
       uses: actions/setup-go@v2
       with:
-        go-version: '>= 1.15.5'
+        go-version: '>= 1.15.6'
     - name: Checkout code
       uses: actions/checkout@v2
     - name: Test
@@ -24,7 +23,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
-          go-version: '>= 1.15.5'
+          go-version: '>= 1.15.6'
       - name: Checkout
         uses: actions/checkout@v2
       - name: Run GoReleaser
