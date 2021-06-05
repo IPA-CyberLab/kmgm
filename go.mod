@@ -12,7 +12,7 @@ require (
 	github.com/lunixbochs/vtclean v1.0.0 // indirect
 	github.com/manifoldco/promptui v0.8.0
 	github.com/mattn/go-colorable v0.1.8 // indirect
-	github.com/mattn/go-isatty v0.0.12
+	github.com/mattn/go-isatty v0.0.13
 	github.com/prometheus/client_golang v1.9.0
 	github.com/prometheus/common v0.15.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
