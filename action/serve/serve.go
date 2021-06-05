@@ -152,6 +152,10 @@ func StartServer(ctx context.Context, env *action.Environment, cfg *Config) (*Se
 	listenAddr := cfg.ListenAddr
 	lc := net.ListenConfig{
 		Control: func(network, address string, c syscall.RawConn) error {
+			if !cfg.ReusePort {
+				return nil
+			}
+
 			var soptErr error
 			if err := c.Control(func(fd uintptr) {
 				soptErr = unix.SetsockoptInt(int(fd), unix.SOL_SOCKET, unix.SO_REUSEPORT, 1)
