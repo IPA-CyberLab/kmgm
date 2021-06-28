@@ -6,7 +6,7 @@ require (
 	cloud.google.com/go v0.72.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.0 // indirect
 	github.com/gofrs/flock v0.8.0
-	github.com/golang/protobuf v1.4.3
+	github.com/golang/protobuf v1.5.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.2
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/lunixbochs/vtclean v1.0.0 // indirect
@@ -26,6 +26,6 @@ require (
 	google.golang.org/genproto v0.0.0-20201113130914-ce600e9a6f9e // indirect
 	google.golang.org/grpc v1.35.0
 	google.golang.org/grpc/examples v0.0.0-20201112215255-90f1b3ee835b // indirect
-	google.golang.org/protobuf v1.25.0
+	google.golang.org/protobuf v1.27.1
 	gopkg.in/yaml.v2 v2.4.0
 )
