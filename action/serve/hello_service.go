@@ -7,7 +7,9 @@ import (
 	"github.com/IPA-CyberLab/kmgm/remote/user"
 )
 
-type helloService struct{}
+type helloService struct {
+	pb.UnimplementedHelloServiceServer
+}
 
 var _ = pb.HelloServiceServer(&helloService{})
 

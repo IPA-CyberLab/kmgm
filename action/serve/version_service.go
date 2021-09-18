@@ -7,7 +7,9 @@ import (
 	"github.com/IPA-CyberLab/kmgm/version"
 )
 
-type versionService struct{}
+type versionService struct {
+	pb.UnimplementedVersionServiceServer
+}
 
 var _ = pb.VersionServiceServer(&versionService{})
 

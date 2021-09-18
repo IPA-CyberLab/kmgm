@@ -1,6 +1,6 @@
 syntax = "proto3";
 package kmgm;
-option go_package = ".;pb";
+option go_package = "./;pb";
 
 enum AuthenticationType {
   UNSPECIFIED = 0;

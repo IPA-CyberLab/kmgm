@@ -22,6 +22,8 @@ import (
 )
 
 type Service struct {
+	pb.UnimplementedCertificateServiceServer
+
 	env *action.Environment
 }
 
