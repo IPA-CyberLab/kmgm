@@ -16,7 +16,7 @@ type Config struct {
 
 	ExposeMetrics bool `flags:"expose-metrics,expose /metrics HTTP endpoint for prometheus to crawl"`
 
-	AutoShutdown time.Duration `flags:"auto-shutdown,auto shutdown server after specified time"`
+	AutoShutdown time.Duration `flags:"auto-shutdown,auto shutdown server after specified time,,duration"`
 
 	// Enable node bootstrapping with the given auth provider.
 	Bootstrap TokenAuthProvider

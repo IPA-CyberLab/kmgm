@@ -9,6 +9,7 @@ import (
 
 	"github.com/IPA-CyberLab/kmgm/action"
 	"github.com/IPA-CyberLab/kmgm/action/setup"
+	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/app/appflags"
 	"github.com/IPA-CyberLab/kmgm/dname"
 	"github.com/IPA-CyberLab/kmgm/frontend"
 	"github.com/IPA-CyberLab/kmgm/ipapi"
@@ -20,7 +21,7 @@ type Config struct {
 	Setup *setup.Config `yaml:"setup" flags:""`
 
 	// This is here to avoid UnmarshalStrict throw error when noDefault was specified for ShouldLoadDefaults().
-	XXX_NoDefault bool `yaml:"noDefault"`
+	XXX_AppFlags appflags.AppFlags `yaml:",inline"`
 }
 
 func (c *Config) Verify(env *action.Environment) error {
@@ -60,7 +61,7 @@ setup:
   # validity: farfuture # valid effectively forever
 
   keyType: {{ .KeyType }}
-  
+
   # For advanced users only.
   #   nameConstraints allow CA to scope subjectAltNames of its leaf certificates.
   #   https://tools.ietf.org/html/rfc5280#section-4.2.1.10
@@ -150,7 +151,7 @@ func EnsureCA(env *action.Environment, cfg *Config, profile *storage.Profile, mo
 var Command = &cli.Command{
 	Name:  "setup",
 	Usage: "Setup Komagome PKI",
-	Flags: append(structflags.MustPopulateFlagsFromStruct(setup.Config{}),
+	Flags: append(structflags.MustPopulateFlagsFromStruct(&Config{}),
 		&cli.BoolFlag{
 			Name:  "dump-template",
 			Usage: "dump configuration template yaml without making actual changes",
@@ -160,13 +161,17 @@ var Command = &cli.Command{
 		env := action.GlobalEnvironment
 		slog := env.Logger.Sugar()
 
+		af := c.App.Metadata["AppFlags"].(*appflags.AppFlags)
+
 		profile, err := env.Profile()
 		if err != nil {
 			return err
 		}
 
+		slog.Debugf("config dump: %+v", af)
+
 		var cfg *Config
-		if c.Bool("dump-template") || !c.Bool("no-default") {
+		if c.Bool("dump-template") || !af.NoDefault {
 			slog.Debugf("Constructing default config.")
 			cfg = DefaultConfig(env)
 		} else {
@@ -190,7 +195,7 @@ var Command = &cli.Command{
 		}
 
 		mode := AllowNonInteractiveSetup
-		if c.Bool("no-default") {
+		if af.NoDefault {
 			mode = AllowNonInteractiveSetupAndRequireCompatibleConfig
 		}
 		if err := EnsureCA(env, cfg, profile, mode); err != nil {

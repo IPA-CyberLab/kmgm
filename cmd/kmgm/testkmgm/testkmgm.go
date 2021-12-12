@@ -49,8 +49,8 @@ func Run(t *testing.T, ctx context.Context, basedir string, configYaml []byte, a
 	a := app.New()
 
 	zobs, logs := observer.New(zapcore.DebugLevel)
+
 	logger := zap.New(zobs)
-	a.Metadata = make(map[string]interface{})
 	a.Metadata["Logger"] = logger
 	a.Metadata["NowImpl"] = mockNowImpl(mockNow)
 

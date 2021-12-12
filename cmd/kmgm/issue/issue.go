@@ -14,6 +14,7 @@ import (
 
 	"github.com/IPA-CyberLab/kmgm/action"
 	"github.com/IPA-CyberLab/kmgm/action/issue"
+	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/app/appflags"
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/setup"
 	"github.com/IPA-CyberLab/kmgm/dname"
 	"github.com/IPA-CyberLab/kmgm/frontend"
@@ -260,7 +261,7 @@ type Config struct {
 
 	Issue *issue.Config `yaml:"issue" flags:""`
 
-	RenewBefore period.Days `yaml:"renewBefore" flags:"renew-before,when specified&comma; renew only if the certificate expires within specified threshold"`
+	RenewBefore period.Days `yaml:"renewBefore" flags:"renew-before,when specified&comma; renew only if the certificate expires within specified threshold,,duration"`
 
 	// This is here to avoid UnmarshalStrict throw error when noDefault was specified for ShouldLoadDefaults().
 	XXX_NoDefault bool `yaml:"noDefault"`
@@ -397,11 +398,13 @@ type Strategy interface {
 }
 
 func ActionImpl(strategy Strategy, c *cli.Context) error {
+	af := c.App.Metadata["AppFlags"].(*appflags.AppFlags)
+
 	env := action.GlobalEnvironment
 	slog := env.Logger.Sugar()
 
 	var cfg *Config
-	if c.Bool("dump-template") || !c.Bool("no-default") {
+	if c.Bool("dump-template") || !af.NoDefault {
 		slog.Debugf("Constructing default config.")
 
 		baseSubject := strategy.CASubject(c.Context, env)

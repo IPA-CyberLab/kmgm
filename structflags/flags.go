@@ -3,12 +3,9 @@ package structflags
 import (
 	"fmt"
 	"reflect"
-	"time"
 
 	"github.com/urfave/cli/v2"
 )
-
-var DurationType = reflect.TypeOf(time.Duration(0))
 
 type Unmarshaler interface {
 	UnmarshalFlag(string) error
@@ -79,51 +76,60 @@ func PopulateStructFromCliContext(cfg interface{}, c *cli.Context) error {
 	return populateValueFromCliContext(reflect.ValueOf(cfg), c, nil)
 }
 
-func populateFlagsFromType(t reflect.Type, parsed *ParsedTag, fs *[]cli.Flag) error {
-	for t.Kind() == reflect.Ptr {
-		t = t.Elem()
+func populateFlagsFromValue(v reflect.Value, parsed *ParsedTag, fs *[]cli.Flag) error {
+	for v.Kind() == reflect.Ptr {
+		v = v.Elem()
 	}
 
-	pt := reflect.PtrTo(t)
-	if pt.Implements(UnmarshalerType) {
-		*fs = append(*fs, parsed.ToCliFlag(reflect.Interface))
+	if v.Type().Implements(UnmarshalerType) ||
+		v.CanAddr() && v.Addr().Type().Implements(UnmarshalerType) {
+		// make it a single flag if unmarshallable
+		*fs = append(*fs, parsed.ToCliFlag(v))
 		return nil
 	}
-	if t.AssignableTo(DurationType) {
-		*fs = append(*fs, parsed.ToDurationFlag())
-	}
 
-	switch t.Kind() {
-	case reflect.String, reflect.Bool, reflect.Int:
-		*fs = append(*fs, parsed.ToCliFlag(t.Kind()))
+	if v.Kind() == reflect.Struct {
+		// recurse if not unmarshallable struct
+		for i := 0; i < v.NumField(); i++ {
+			parsedField := Parse(v.Type().Field(i).Tag, parsed)
 
-	case reflect.Struct:
-		for i := 0; i < t.NumField(); i++ {
-			tf := t.Field(i)
-
-			parsedField := Parse(tf.Tag, parsed)
+			// only process fields if tagged
 			if parsedField == nil {
 				continue
 			}
-			if err := populateFlagsFromType(tf.Type, parsedField, fs); err != nil {
+
+			fv := v.Field(i)
+
+			// if the field value is nil ptr, zero construct a struct
+			if fv.Type().Kind() == reflect.Ptr && fv.IsNil() {
+				ft := v.Type().Field(i).Type.Elem()
+				fv = reflect.New(ft)
+			}
+
+			if err := populateFlagsFromValue(fv, parsedField, fs); err != nil {
 				return err
 			}
 		}
+
+		return nil
 	}
+
+	*fs = append(*fs, parsed.ToCliFlag(v))
 	return nil
 }
 
-func PopulateFlagsFromStruct(v interface{}) ([]cli.Flag, error) {
+func PopulateFlagsFromStruct(s interface{}) ([]cli.Flag, error) {
 	var fs []cli.Flag
-	err := populateFlagsFromType(reflect.TypeOf(v), nil, &fs)
-	if err != nil {
+
+	if err := populateFlagsFromValue(reflect.ValueOf(s), nil, &fs); err != nil {
 		return nil, err
 	}
+
 	return fs, nil
 }
 
-func MustPopulateFlagsFromStruct(v interface{}) []cli.Flag {
-	flags, err := PopulateFlagsFromStruct(v)
+func MustPopulateFlagsFromStruct(s interface{}) []cli.Flag {
+	flags, err := PopulateFlagsFromStruct(s)
 	if err != nil {
 		panic(err)
 	}

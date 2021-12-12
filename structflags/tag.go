@@ -6,6 +6,7 @@ import (
 	"log"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/urfave/cli/v2"
 )
@@ -54,11 +55,60 @@ func Parse(tag reflect.StructTag, parent *ParsedTag) *ParsedTag {
 	return parsed
 }
 
-func (parsed *ParsedTag) ToCliFlag(k reflect.Kind) cli.Flag {
+var DurationType = reflect.TypeOf(time.Duration(0))
+
+func (parsed *ParsedTag) ToCliFlag(v reflect.Value) cli.Flag {
 	_, required := parsed.Opts["required"]
 	_, hidden := parsed.Opts["hidden"]
 
-	switch k {
+	if _, ok := parsed.Opts["duration"]; ok {
+		return &cli.DurationFlag{
+			Name:     parsed.Name,
+			Usage:    parsed.Usage,
+			Aliases:  parsed.Aliases,
+			Required: required,
+			Hidden:   hidden,
+			// FIXME: default value
+		}
+	}
+
+	var defaultValue string
+	stringLike := false
+	if v.Kind() == reflect.String {
+		stringLike = true
+		defaultValue = v.String()
+	} else if v.Type().Implements(UnmarshalerType) {
+		stringLike = true
+		defaultValue = "" // FIXME
+	} else if v.CanAddr() && v.Addr().Type().Implements(UnmarshalerType) {
+		stringLike = true
+		defaultValue = "" // FIXME
+	}
+	if stringLike {
+		if _, ok := parsed.Opts["path"]; ok {
+			return &cli.PathFlag{
+				Name:        parsed.Name,
+				Usage:       parsed.Usage,
+				Aliases:     parsed.Aliases,
+				Required:    required,
+				Hidden:      hidden,
+				Value:       defaultValue,
+				DefaultText: defaultValue,
+			}
+		} else {
+			return &cli.StringFlag{
+				Name:        parsed.Name,
+				Usage:       parsed.Usage,
+				Aliases:     parsed.Aliases,
+				Required:    required,
+				Hidden:      hidden,
+				Value:       defaultValue,
+				DefaultText: defaultValue,
+			}
+		}
+	}
+
+	switch v.Kind() {
 	case reflect.Bool:
 		return &cli.BoolFlag{
 			Name:     parsed.Name,
@@ -66,6 +116,7 @@ func (parsed *ParsedTag) ToCliFlag(k reflect.Kind) cli.Flag {
 			Aliases:  parsed.Aliases,
 			Required: required,
 			Hidden:   hidden,
+			Value:    v.Bool(),
 		}
 
 	case reflect.Int:
@@ -75,42 +126,11 @@ func (parsed *ParsedTag) ToCliFlag(k reflect.Kind) cli.Flag {
 			Aliases:  parsed.Aliases,
 			Required: required,
 			Hidden:   hidden,
-		}
-
-	case reflect.String, reflect.Interface:
-		if _, ok := parsed.Opts["path"]; ok {
-			return &cli.PathFlag{
-				Name:     parsed.Name,
-				Usage:    parsed.Usage,
-				Aliases:  parsed.Aliases,
-				Required: required,
-				Hidden:   hidden,
-			}
-		} else {
-			return &cli.StringFlag{
-				Name:     parsed.Name,
-				Usage:    parsed.Usage,
-				Aliases:  parsed.Aliases,
-				Required: required,
-				Hidden:   hidden,
-			}
+			Value:    int(v.Int()),
 		}
 
 	default:
-		log.Panicf("ToCliFlag: unknown kind %v", k)
+		log.Panicf("ToCliFlag: unknown kind %v", v.Kind())
 		return nil
-	}
-}
-
-func (parsed *ParsedTag) ToDurationFlag() cli.Flag {
-	_, required := parsed.Opts["required"]
-	_, hidden := parsed.Opts["hidden"]
-
-	return &cli.DurationFlag{
-		Name:     parsed.Name,
-		Usage:    parsed.Usage,
-		Aliases:  parsed.Aliases,
-		Required: required,
-		Hidden:   hidden,
 	}
 }

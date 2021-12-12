@@ -8,7 +8,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mattn/go-isatty"
+	"github.com/urfave/cli/v2"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"gopkg.in/yaml.v2"
+
 	"github.com/IPA-CyberLab/kmgm/action"
+	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/app/appflags"
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/issue"
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/list"
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/remote"
@@ -20,15 +27,24 @@ import (
 	"github.com/IPA-CyberLab/kmgm/frontend/promptuife"
 	"github.com/IPA-CyberLab/kmgm/ipapi"
 	"github.com/IPA-CyberLab/kmgm/storage"
+	"github.com/IPA-CyberLab/kmgm/structflags"
 	"github.com/IPA-CyberLab/kmgm/version"
-	"github.com/mattn/go-isatty"
-	"github.com/urfave/cli/v2"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 func SimpleTimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 	enc.AppendString(t.Format("15:04:05.999"))
+}
+
+func mustFindFlagByName(fs []cli.Flag, name string) cli.Flag {
+	l := zap.S()
+	for _, f := range fs {
+		if f.Names()[0] == name {
+			return f
+		}
+	}
+
+	l.Panic("Failed to find flag of name %q", name)
+	return nil
 }
 
 func resolveCmd(c *cli.Context) *cli.Command {
@@ -59,48 +75,24 @@ func New() *cli.App {
 	}
 	app.Version = fmt.Sprintf("%s.%s", version.Version, version.Commit)
 	app.EnableBashCompletion = true
-	app.Flags = []cli.Flag{
-		&cli.PathFlag{
-			Name:    "basedir",
-			EnvVars: []string{"KMGMDIR"},
-			Usage:   "The root directory storing all kmgm data.",
-			Value:   defaultStoragePath,
-		},
-		&cli.StringFlag{
-			Name:    "profile",
-			EnvVars: []string{"KMGM_PROFILE"},
-			Usage:   "Name of the profile to operate against.",
-			Value:   storage.DefaultProfileName,
-		},
-		&cli.StringFlag{
-			Name:  "config",
-			Usage: "Read the specified YAML config file instead of interactive prompt.",
-		},
-		&cli.BoolFlag{
-			Name:  "no-geoip",
-			Usage: "Disable querying ip-api.com for geolocation data.",
-		},
-		&cli.BoolFlag{
-			Name:  "no-default",
-			Usage: "Disable populating default values on non-interactive mode.",
-		},
-		&cli.BoolFlag{
-			Name:  "log-location",
-			Usage: "Annotate logs with code location where the log was output",
-		},
-		&cli.BoolFlag{
-			Name:  "log-json",
-			Usage: "Format logs in json",
-		},
-		&cli.BoolFlag{
-			Name:  "verbose",
-			Usage: "Enable verbose output",
-		},
-		&cli.BoolFlag{
-			Name:  "non-interactive",
-			Usage: "Use non-interactive frontend, which auto proceeds with default answers.",
-		},
+
+	af := appflags.AppFlags{
+		BaseDir: defaultStoragePath,
+		Profile: storage.DefaultProfileName,
 	}
+	app.Flags = structflags.MustPopulateFlagsFromStruct(&af)
+	app.Metadata = map[string]interface{}{
+		"AppFlags": &af,
+	}
+
+	basedirFlag := mustFindFlagByName(app.Flags, "basedir")
+	basedirStringFlag := basedirFlag.(*cli.StringFlag)
+	basedirStringFlag.EnvVars = []string{"KMGMDIR"}
+
+	profileFlag := mustFindFlagByName(app.Flags, "profile")
+	profileStringFlag := profileFlag.(*cli.StringFlag)
+	profileStringFlag.EnvVars = []string{"KMGM_PROFILE"}
+
 	app.Commands = []*cli.Command{
 		setup.Command,
 		issue.Command,
@@ -111,9 +103,11 @@ func New() *cli.App {
 		show.Command,
 	}
 	BeforeImpl := func(c *cli.Context) error {
-		cmd := resolveCmd(c)
+		if err := structflags.PopulateStructFromCliContext(&af, c); err != nil {
+			return err
+		}
 
-		if c.Bool("no-geoip") {
+		if af.NoGeoIp {
 			ipapi.EnableQuery = false
 		}
 
@@ -122,9 +116,10 @@ func New() *cli.App {
 			logger = loggeri.(*zap.Logger)
 		} else {
 			cfg := zap.NewProductionConfig()
-			cfg.DisableCaller = !c.Bool("log-location")
-			if !c.Bool("log-json") {
+			cfg.DisableCaller = !af.LogLocation
+			if !af.LogJson {
 				cfg.Encoding = "console"
+				cmd := resolveCmd(c)
 				switch cmd {
 				case serve.Command:
 					cfg.EncoderConfig.EncodeTime = SimpleTimeEncoder
@@ -134,7 +129,7 @@ func New() *cli.App {
 
 				cfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 			}
-			if c.Bool("verbose") {
+			if af.Verbose {
 				cfg.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
 			}
 
@@ -145,33 +140,31 @@ func New() *cli.App {
 			}
 		}
 
-		stor, err := storage.New(c.String("basedir"))
-		if err != nil {
-			return err
-		}
-
-		configFile := c.String("config")
-		if configFile != "" {
-			bs, err := ioutil.ReadFile(configFile)
+		if af.Config != "" {
+			bs, err := ioutil.ReadFile(af.Config)
 			if err != nil {
 				return fmt.Errorf("Failed to read specified config file: %w", err)
 			}
 			configText := string(bs)
 			if strings.TrimSpace(configText) == "" {
-				return fmt.Errorf("The specified config file %s was empty", configFile)
+				return fmt.Errorf("The specified config file %s was empty", af.Config)
 			}
 			app.Metadata["config"] = bs
 
-			if frontend.IsNoDefaultSpecifiedInYaml(bs) {
-				logger.Debug("The specified config file has NoDefault set to true.")
-				c.Set("no-default", "true")
-			}
+			af.NonInteractive = true
 
-			c.Set("non-interactive", "true")
+			if err := yaml.Unmarshal(bs, &af); err != nil {
+				return fmt.Errorf("Failed to yaml.Unmarshal AppFlags: %w", err)
+			}
+		}
+
+		stor, err := storage.New(af.BaseDir)
+		if err != nil {
+			return err
 		}
 
 		var fe frontend.Frontend
-		if c.Bool("non-interactive") || !isatty.IsTerminal(os.Stdin.Fd()) {
+		if af.NonInteractive || !isatty.IsTerminal(os.Stdin.Fd()) {
 			fe = &frontend.NonInteractive{Logger: logger}
 		} else {
 			fe = promptuife.Frontend{}
@@ -181,7 +174,7 @@ func New() *cli.App {
 		if err != nil {
 			return err
 		}
-		env.ProfileName = c.String("profile")
+		env.ProfileName = af.Profile
 		env.Logger = logger
 		if nowimpl, ok := app.Metadata["NowImpl"]; ok {
 			env.NowImpl = nowimpl.(func() time.Time)
