@@ -141,10 +141,25 @@ func New() *cli.App {
 		}
 
 		if af.Config != "" {
-			bs, err := ioutil.ReadFile(af.Config)
-			if err != nil {
-				return fmt.Errorf("Failed to read specified config file: %w", err)
+			var r io.ReadCloser
+			if af.Config == "-" {
+				r = os.Stdin
+			} else {
+				f, err := os.Open(af.Config)
+				if err != nil {
+					return fmt.Errorf("Failed to open specified config file %q: %w", af.Config, err)
+				}
+				r = f
 			}
+
+			bs, err := ioutil.ReadAll(r)
+			if err != nil {
+				return fmt.Errorf("Failed to read specified config file %q: %w", af.Config, err)
+			}
+			if err := r.Close(); err != nil {
+				return fmt.Errorf("Failed to close specified config file %q: %w", af.Config, err)
+			}
+
 			configText := string(bs)
 			if strings.TrimSpace(configText) == "" {
 				return fmt.Errorf("The specified config file %s was empty", af.Config)
