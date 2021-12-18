@@ -263,8 +263,8 @@ type Config struct {
 
 	RenewBefore period.Days `yaml:"renewBefore" flags:"renew-before,when specified&comma; renew only if the certificate expires within specified threshold,,duration"`
 
-	// This is here to avoid UnmarshalStrict throw error when noDefault was specified for ShouldLoadDefaults().
-	XXX_NoDefault bool `yaml:"noDefault"`
+	// This is here to avoid UnmarshalStrict throw error for valid AppFlags fields
+	XXX_AppFlags appflags.AppFlags `yaml:",inline"`
 }
 
 func VerifyKeyType(path string, expected wcrypto.KeyType) (crypto.PublicKey, error) {

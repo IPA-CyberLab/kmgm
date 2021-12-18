@@ -20,7 +20,7 @@ import (
 type Config struct {
 	Setup *setup.Config `yaml:"setup" flags:""`
 
-	// This is here to avoid UnmarshalStrict throw error when noDefault was specified for ShouldLoadDefaults().
+	// This is here to avoid UnmarshalStrict throw error for valid AppFlags fields
 	XXX_AppFlags appflags.AppFlags `yaml:",inline"`
 }
 
