@@ -121,7 +121,7 @@ type Server struct {
 }
 
 func StartServer(ctx context.Context, env *action.Environment, cfg *Config) (*Server, error) {
-	slog := env.Logger.Sugar()
+	slog := env.Logger.Sugar().Named("StartServer")
 
 	if cfg.Names.Empty() {
 		ns, err := san.ForListenAddr(cfg.ListenAddr)

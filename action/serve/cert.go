@@ -14,9 +14,9 @@ import (
 	"github.com/IPA-CyberLab/kmgm/action/serve/authprofile"
 	"github.com/IPA-CyberLab/kmgm/dname"
 	"github.com/IPA-CyberLab/kmgm/keyusage"
+	"github.com/IPA-CyberLab/kmgm/period"
 	"github.com/IPA-CyberLab/kmgm/san"
 	"github.com/IPA-CyberLab/kmgm/storage"
-	"github.com/IPA-CyberLab/kmgm/period"
 	"github.com/IPA-CyberLab/kmgm/wcrypto"
 )
 
@@ -42,6 +42,8 @@ func ensurePrivateKey(env *action.Environment, authp *storage.Profile) (crypto.P
 }
 
 func ensureServerCert(env *action.Environment, authp *storage.Profile, ns san.Names) (*tls.Certificate, string, error) {
+	l := env.Logger.Sugar().Named("ensureServerCert")
+
 	priv, err := ensurePrivateKey(env, authp)
 	if err != nil {
 		return nil, "", err
@@ -62,12 +64,15 @@ func ensureServerCert(env *action.Environment, authp *storage.Profile, ns san.Na
 	}
 
 	cert, err := authp.ReadServerCertificate()
-	// FIXME[P2]: check if ns matches
-	if err != nil {
-		if !errors.Is(err, os.ErrNotExist) {
-			return nil, "", err
+	if err == nil {
+		// FIXME[P2]: also check if ns matches
+		err = wcrypto.VerifyServerCert(cert, cacert, now)
+		if err != nil {
+			l.Infof("Successfully read the server certificate, but it was not valid: %v", err)
+			cert = nil
 		}
-
+	}
+	if err != nil {
 		var srvEnv action.Environment
 		srvEnv = *env
 		srvEnv.ProfileName = authprofile.ProfileName
@@ -94,12 +99,6 @@ func ensureServerCert(env *action.Environment, authp *storage.Profile, ns san.Na
 		if err := authp.WriteServerCertificate(cert); err != nil {
 			return nil, "", err
 		}
-	}
-
-	now = time.Now()
-	if err := wcrypto.VerifyServerCert(cert, cacert, now); err != nil {
-		// FIXME[P2]: try reissueing cert once
-		return nil, "", err
 	}
 
 	pub, ok := cert.PublicKey.(crypto.PublicKey)
