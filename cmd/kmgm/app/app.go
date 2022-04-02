@@ -139,6 +139,7 @@ func New() *cli.App {
 				return err
 			}
 		}
+		zap.ReplaceGlobals(logger)
 
 		if af.Config != "" {
 			var r io.ReadCloser
@@ -196,7 +197,6 @@ func New() *cli.App {
 		}
 
 		action.GlobalEnvironment = env
-		zap.ReplaceGlobals(env.Logger)
 
 		return nil
 	}
