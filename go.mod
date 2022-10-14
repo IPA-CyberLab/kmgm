@@ -13,7 +13,7 @@ require (
 	go.uber.org/multierr v1.8.0
 	go.uber.org/zap v1.22.0
 	golang.org/x/net v0.0.0-20220812174116-3211cb980234
-	golang.org/x/oauth2 v0.0.0-20220808172628-8227340efae7
+	golang.org/x/oauth2 v0.0.0-20221014153046-6fdb5e3db783
 	golang.org/x/sys v0.0.0-20220818161305-2296e01440c6
 	google.golang.org/grpc v1.48.0
 	google.golang.org/protobuf v1.28.1
