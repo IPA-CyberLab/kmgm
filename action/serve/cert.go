@@ -82,7 +82,7 @@ func ensureServerCert(env *action.Environment, authp *storage.Profile, ns san.Na
 			},
 			Names:    ns,
 			KeyUsage: keyusage.KeyUsageTLSServer.Clone(),
-			Validity: period.ValidityPeriod{Days: 820},
+			Validity: period.FarFuture,
 			KeyType:  wcrypto.ServerKeyType,
 
 			NoIssueDBEntry: true,
