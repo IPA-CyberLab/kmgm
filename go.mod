@@ -10,7 +10,7 @@ require (
 	github.com/mattn/go-isatty v0.0.16
 	github.com/prometheus/client_golang v1.13.0
 	github.com/urfave/cli/v2 v2.11.2
-	go.uber.org/multierr v1.8.0
+	go.uber.org/multierr v1.9.0
 	go.uber.org/zap v1.22.0
 	golang.org/x/net v0.0.0-20220812174116-3211cb980234
 	golang.org/x/oauth2 v0.0.0-20220808172628-8227340efae7
