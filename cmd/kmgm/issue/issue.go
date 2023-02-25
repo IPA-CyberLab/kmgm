@@ -1,6 +1,7 @@
 package issue
 
 import (
+	"bytes"
 	"context"
 	"crypto"
 	"errors"
@@ -10,7 +11,7 @@ import (
 	"time"
 
 	"github.com/urfave/cli/v2"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 
 	"github.com/IPA-CyberLab/kmgm/action"
 	"github.com/IPA-CyberLab/kmgm/action/issue"
@@ -263,7 +264,7 @@ type Config struct {
 
 	RenewBefore period.Days `yaml:"renewBefore" flags:"renew-before,when specified&comma; renew only if the certificate expires within specified threshold,,duration"`
 
-	// This is here to avoid UnmarshalStrict throw error for valid AppFlags fields
+	// This is here to avoid yaml.v3 Decoder with KnownFields(true) throwing error for valid AppFlags fields
 	XXX_AppFlags appflags.AppFlags `yaml:",inline"`
 }
 
@@ -432,7 +433,12 @@ func ActionImpl(strategy Strategy, c *cli.Context) error {
 	}
 
 	if cfgbs, ok := c.App.Metadata["config"]; ok {
-		if err := yaml.UnmarshalStrict(cfgbs.([]byte), cfg); err != nil {
+		r := bytes.NewBuffer(cfgbs.([]byte))
+
+		d := yaml.NewDecoder(r)
+		d.KnownFields(true)
+
+		if err := d.Decode(cfg); err != nil {
 			return err
 		}
 	}

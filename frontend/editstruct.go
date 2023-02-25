@@ -9,7 +9,7 @@ import (
 	"text/template"
 
 	"github.com/IPA-CyberLab/kmgm/keyusage"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 type templateContext struct {
@@ -175,7 +175,12 @@ func EditStructWithVerifier(fe Frontend, tmplstr string, cfg interface{}, Verify
 	cfgtxt := buf.String()
 
 	VerifyText := func(src string) (string, error) {
-		if err := yaml.UnmarshalStrict([]byte(src), tctx.Config); err != nil {
+		r := bytes.NewBuffer([]byte(src))
+
+		d := yaml.NewDecoder(r)
+		d.KnownFields(true)
+
+		if err := d.Decode(tctx.Config); err != nil {
 			// yaml error means that we can't use the template (we will lose the full data)
 			txtwerr := strings.Join([]string{
 				"# Please correct syntax error:\n",

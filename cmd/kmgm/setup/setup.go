@@ -1,11 +1,12 @@
 package setup
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 
 	"github.com/urfave/cli/v2"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 
 	"github.com/IPA-CyberLab/kmgm/action"
 	"github.com/IPA-CyberLab/kmgm/action/setup"
@@ -20,7 +21,7 @@ import (
 type Config struct {
 	Setup *setup.Config `yaml:"setup" flags:""`
 
-	// This is here to avoid UnmarshalStrict throw error for valid AppFlags fields
+	// This is here to avoid yaml.v3 Decoder with KnownFields(true) throwing error for valid AppFlags fields
 	XXX_AppFlags appflags.AppFlags `yaml:",inline"`
 }
 
@@ -180,7 +181,12 @@ var Command = &cli.Command{
 		}
 
 		if cfgbs, ok := c.App.Metadata["config"]; ok {
-			if err := yaml.UnmarshalStrict(cfgbs.([]byte), cfg); err != nil {
+			r := bytes.NewBuffer(cfgbs.([]byte))
+
+			d := yaml.NewDecoder(r)
+			d.KnownFields(true)
+
+			if err := d.Decode(cfg); err != nil {
 				return err
 			}
 		}
