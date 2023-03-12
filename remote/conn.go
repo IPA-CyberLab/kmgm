@@ -10,7 +10,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/oauth2"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/oauth"
 
 	"github.com/IPA-CyberLab/kmgm/storage"
@@ -29,7 +28,7 @@ type ConnectionInfo struct {
 	AccessToken string `yaml:"accessToken,omitempty" flags:"token,Token string to use for server authentication when bootstrapping"`
 }
 
-func (cinfo ConnectionInfo) TransportCredentials(l *zap.Logger) (credentials.TransportCredentials, error) {
+func (cinfo ConnectionInfo) TransportCredentials(l *zap.Logger) (*TransportCredentials, error) {
 	slog := l.Sugar()
 
 	var tc *tls.Config
@@ -84,10 +83,10 @@ func (cinfo ConnectionInfo) TransportCredentials(l *zap.Logger) (credentials.Tra
 	return tcred, nil
 }
 
-func (cinfo ConnectionInfo) Dial(ctx context.Context, l *zap.Logger) (*grpc.ClientConn, error) {
+func (cinfo ConnectionInfo) DialPubKeys(ctx context.Context, l *zap.Logger) (*grpc.ClientConn, map[string]struct{}, error) {
 	tcred, err := cinfo.TransportCredentials(l)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	opts := []grpc.DialOption{
@@ -101,7 +100,12 @@ func (cinfo ConnectionInfo) Dial(ctx context.Context, l *zap.Logger) (*grpc.Clie
 	}
 	conn, err := grpc.DialContext(ctx, cinfo.HostPort, opts...)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to grpc.Dial(%q). err: %v", cinfo.HostPort, err)
+		return nil, nil, fmt.Errorf("Failed to grpc.Dial(%q). err: %v", cinfo.HostPort, err)
 	}
-	return conn, nil
+	return conn, tcred.PeerPubKeys, nil
+}
+
+func (cinfo ConnectionInfo) Dial(ctx context.Context, l *zap.Logger) (*grpc.ClientConn, error) {
+	conn, _, err := cinfo.DialPubKeys(ctx, l)
+	return conn, err
 }

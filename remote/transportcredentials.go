@@ -15,14 +15,16 @@ import (
 type TransportCredentials struct {
 	tlscreds     credentials.TransportCredentials
 	PinnedPubKey string
+	PeerPubKeys  map[string]struct{}
 }
 
 var _ = credentials.TransportCredentials(&TransportCredentials{})
 
-func NewTransportCredentials(c *tls.Config, pinnedpubkey string) credentials.TransportCredentials {
+func NewTransportCredentials(c *tls.Config, pinnedpubkey string) *TransportCredentials {
 	return &TransportCredentials{
 		tlscreds:     credentials.NewTLS(c),
 		PinnedPubKey: pinnedpubkey,
+		PeerPubKeys:  make(map[string]struct{}),
 	}
 }
 
@@ -36,30 +38,30 @@ func (c *TransportCredentials) ClientHandshake(ctx context.Context, authority st
 		return nil, nil, err
 	}
 
-	if c.PinnedPubKey != "" {
-		ti := authinfo.(credentials.TLSInfo)
+	ti := authinfo.(credentials.TLSInfo)
 
-		found := false
+	found := false
 
-		pcerts := ti.State.PeerCertificates
-		for _, pcert := range pcerts {
-			pubkeyhash, err := wcrypto.PubKeyPinString(pcert.PublicKey)
-			if err != nil {
-				// FIXME[P2]: how should we handle this? at least log?
-				continue
-			}
-
-			if pubkeyhash == c.PinnedPubKey {
-				found = true
-				break
-			}
+	pcerts := ti.State.PeerCertificates
+	for _, pcert := range pcerts {
+		pubkeyhash, err := wcrypto.PubKeyPinString(pcert.PublicKey)
+		if err != nil {
+			// FIXME[P2]: how should we handle this? at least log?
+			continue
 		}
 
-		if !found {
-			_ = conn.Close()
+		c.PeerPubKeys[pubkeyhash] = struct{}{}
 
-			return nil, nil, fmt.Errorf("Server certificate did not match pinnedpubkey %q.", c.PinnedPubKey)
+		if pubkeyhash == c.PinnedPubKey {
+			found = true
+			break
 		}
+	}
+
+	if c.PinnedPubKey != "" && !found {
+		_ = conn.Close()
+
+		return nil, nil, fmt.Errorf("Server certificate did not match pinnedpubkey %q.", c.PinnedPubKey)
 	}
 
 	return conn, authinfo, nil
