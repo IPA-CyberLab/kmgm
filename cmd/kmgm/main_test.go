@@ -300,7 +300,7 @@ func TestIssue_Default(t *testing.T) {
 		"--cn", "leaf_CN",
 	}, testkmgm.NowDefault)
 	testutils.ExpectErr(t, err, nil)
-	testutils.ExpectLogMessage(t, logs, "Generating certificate... Done.")
+	testutils.ExpectLogMessage(t, logs, "Generating leaf certificate... Done.")
 
 	cert, err := storage.ReadCertificateFile(certPath)
 	if err != nil {
@@ -336,7 +336,7 @@ noDefault: true
 		"--cert", certPath,
 	}, testkmgm.NowDefault)
 	testutils.ExpectErr(t, err, nil)
-	testutils.ExpectLogMessage(t, logs, "Generating certificate... Done.")
+	testutils.ExpectLogMessage(t, logs, "Generating leaf certificate... Done.")
 
 	cert, err := storage.ReadCertificateFile(certPath)
 	if err != nil {
@@ -421,7 +421,7 @@ noDefault: true
 
 	logs, err := testkmgm.Run(t, context.Background(), basedir, yaml, []string{"issue"}, testkmgm.NowDefault)
 	testutils.ExpectErr(t, err, nil)
-	testutils.ExpectLogMessage(t, logs, "Generating certificate... Done.")
+	testutils.ExpectLogMessage(t, logs, "Generating leaf certificate... Done.")
 
 	cert, err := storage.ReadCertificateFile(certPath)
 	if err != nil {
@@ -602,7 +602,7 @@ func TestIssue_RenewCert_NoDefault(t *testing.T) {
 
 		logs, err := testkmgm.Run(t, context.Background(), basedir, yaml, []string{"issue"}, testkmgm.NowDefault)
 		testutils.ExpectErr(t, err, nil)
-		testutils.ExpectLogMessage(t, logs, "Generating certificate... Done.")
+		testutils.ExpectLogMessage(t, logs, "Generating leaf certificate... Done.")
 
 		cert, err := storage.ReadCertificateFile(certPath)
 		if err != nil {
