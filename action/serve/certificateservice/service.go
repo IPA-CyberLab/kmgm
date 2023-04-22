@@ -3,13 +3,17 @@ package certificateservice
 import (
 	"context"
 	"crypto/x509"
+	"errors"
+	"fmt"
 	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/IPA-CyberLab/kmgm/action"
 	"github.com/IPA-CyberLab/kmgm/action/issue"
+	"github.com/IPA-CyberLab/kmgm/action/setup"
 	"github.com/IPA-CyberLab/kmgm/dname"
 	"github.com/IPA-CyberLab/kmgm/keyusage"
 	"github.com/IPA-CyberLab/kmgm/pb"
@@ -19,6 +23,7 @@ import (
 	"github.com/IPA-CyberLab/kmgm/san"
 	"github.com/IPA-CyberLab/kmgm/storage"
 	"github.com/IPA-CyberLab/kmgm/storage/issuedb"
+	"github.com/IPA-CyberLab/kmgm/wcrypto"
 )
 
 type Service struct {
@@ -31,6 +36,59 @@ var _ = pb.CertificateServiceServer(&Service{})
 
 func New(env *action.Environment) (*Service, error) {
 	return &Service{env: env}, nil
+}
+
+func PbKeyTypeToKeyType(pkt pb.KeyType) (wcrypto.KeyType, error) {
+	switch pkt {
+	case pb.KeyType_KEYTYPE_UNSPECIFIED:
+		return wcrypto.KeyAny, nil
+	case pb.KeyType_KEYTYPE_RSA4096:
+		return wcrypto.KeyRSA4096, nil
+	case pb.KeyType_KEYTYPE_SECP256R1:
+		return wcrypto.KeySECP256R1, nil
+	case pb.KeyType_KEYTYPE_RSA2048:
+		return wcrypto.KeyRSA2048, nil
+	default:
+		return wcrypto.KeyAny, fmt.Errorf("Don't know how to convert pb.KeyType(%d)", pkt)
+	}
+}
+
+func (svc *Service) SetupCA(ctx context.Context, req *pb.SetupCARequest) (*pb.SetupCAResponse, error) {
+	slog := svc.env.Logger.Sugar()
+	_ = slog
+
+	u := user.FromContext(ctx)
+	if !u.IsAllowedToSetupCA(req.Profile) {
+		return nil, status.Errorf(codes.Unauthenticated, "%v is not allowed to issue certificate.", u)
+	}
+
+	kt, err := PbKeyTypeToKeyType(req.KeyType)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	cfg := &setup.Config{
+		Subject:  dname.FromProtoStruct(req.Subject),
+		Validity: period.FarFuture,
+		KeyType:  kt,
+	}
+	if req.NotAfterUnixtime != 0 {
+		cfg.Validity = period.ValidityPeriod{
+			NotAfter: time.Unix(req.NotAfterUnixtime, 0).UTC(),
+		}
+	}
+
+	envP := svc.env.Clone()
+	envP.ProfileName = req.Profile
+	if err := setup.Run(envP, cfg); err != nil {
+		if errors.Is(err, setup.ErrValidCAExist) {
+			return nil, status.Errorf(codes.AlreadyExists, "%v", err)
+		}
+
+		return nil, status.Errorf(codes.Internal, "%v", err)
+	}
+
+	return &pb.SetupCAResponse{}, nil
 }
 
 func (svc *Service) IssuePreflight(ctx context.Context, req *pb.IssuePreflightRequest) (*pb.IssuePreflightResponse, error) {

@@ -79,7 +79,7 @@ var placeholderBytes = []byte("placeholder for checking if the file is writable\
 func MkdirAndCheckWritable(p string) error {
 	_, err := os.Stat(p)
 	if err == nil {
-		return fmt.Errorf("File %q already exists.", p)
+		return fmt.Errorf("%w: %q", os.ErrExist, p)
 	}
 	if err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("os.Stat(%q): %w", p, err)

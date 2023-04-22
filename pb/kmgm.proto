@@ -9,6 +9,14 @@ enum AuthenticationType {
   CLIENT_CERT = 3;
 }
 
+// Keep this in sync with wcrypto.KeyType
+enum KeyType {
+  KEYTYPE_UNSPECIFIED = 0;
+  KEYTYPE_RSA4096 = 1;
+  KEYTYPE_SECP256R1 = 2;
+  KEYTYPE_RSA2048 = 3;
+}
+
 message HelloRequest {
 }
 
@@ -55,6 +63,16 @@ message KeyUsage {
   repeated uint32 ext_key_usages = 2;
 }
 
+message SetupCARequest {
+  string profile = 1;
+  DistinguishedName subject = 2;
+  KeyType key_type = 3;
+  int64 not_after_unixtime = 4;
+}
+
+message SetupCAResponse {
+}
+
 message IssuePreflightRequest {
   string profile = 1;
 }
@@ -86,6 +104,7 @@ message GetCertificateResponse {
 }
 
 service CertificateService {
+  rpc SetupCA(SetupCARequest) returns (SetupCAResponse);
   rpc IssuePreflight(IssuePreflightRequest) returns (IssuePreflightResponse);
   rpc IssueCertificate(IssueCertificateRequest) returns (IssueCertificateResponse);
   rpc GetCertificate(GetCertificateRequest) returns (GetCertificateResponse);

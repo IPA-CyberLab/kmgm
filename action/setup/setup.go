@@ -3,6 +3,7 @@ package setup
 import (
 	"crypto"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"math/big"
 	"time"
@@ -13,20 +14,30 @@ import (
 	"github.com/IPA-CyberLab/kmgm/action"
 	"github.com/IPA-CyberLab/kmgm/consts"
 	"github.com/IPA-CyberLab/kmgm/frontend/validate"
+	"github.com/IPA-CyberLab/kmgm/storage"
 	"github.com/IPA-CyberLab/kmgm/storage/issuedb"
 	"github.com/IPA-CyberLab/kmgm/wcrypto"
 )
 
 func createCertificate(env *action.Environment, cfg *Config, priv crypto.PrivateKey) ([]byte, error) {
-	slog := env.Logger.Sugar()
+	slog := env.Logger.Sugar().With(
+		"profile", env.ProfileName,
+		"subject", cfg.Subject.ToPkixName().String(),
+		"notafter", cfg.Validity,
+	)
 
 	start := time.Now()
-	slog.Infow("Generating certificate...")
+	slog.Infow("Generating self-signed CA certificate...")
 
 	pub, err := wcrypto.ExtractPublicKey(priv)
 	if err != nil {
 		return nil, err
 	}
+	pubkeyhash, err := wcrypto.PubKeyPinString(pub)
+	if err != nil {
+		pubkeyhash = fmt.Sprintf("Error: %v", err)
+	}
+	slog = slog.With("pubkeyhash", pubkeyhash)
 
 	kt, err := wcrypto.KeyTypeOfPub(pub)
 	if err != nil {
@@ -104,11 +115,13 @@ func createCertificate(env *action.Environment, cfg *Config, priv crypto.Private
 
 	certDer, err := x509.CreateCertificate(env.Randr, t, parent, pub, priv)
 	if err != nil {
-		return nil, fmt.Errorf("Create self-signed CA cert failed: %w", err)
+		return nil, fmt.Errorf("Create a self-signed CA cert failed: %w", err)
 	}
-	slog.Infow("Generating certificate... Done.", "took", time.Now().Sub(start))
+	slog.Infow("Generating a self-signed CA certificate... Done.", "took", time.Since(start))
 	return certDer, nil
 }
+
+var ErrValidCAExist = errors.New("Valid CA already exists.")
 
 func Run(env *action.Environment, cfg *Config) error {
 	slog := env.Logger.Sugar()
@@ -117,16 +130,29 @@ func Run(env *action.Environment, cfg *Config) error {
 	if err != nil {
 		return err
 	}
+
+	st := profile.Status(env.NowImpl())
+	switch st.Code {
+	case storage.NotCA:
+		break
+	case storage.ValidCA:
+		return ErrValidCAExist
+	case storage.Broken:
+		return fmt.Errorf("Broken CA already exists.")
+	case storage.Expired:
+		return fmt.Errorf("Expired CA already exists.")
+	}
+
 	idb, err := issuedb.New(profile.IssueDBPath())
 	if err != nil {
 		return err
 	}
 
 	if err := validate.MkdirAndCheckWritable(profile.CAPrivateKeyPath()); err != nil {
-		return err
+		return fmt.Errorf("Prepare private key destination: %w", err)
 	}
 	if err := validate.MkdirAndCheckWritable(profile.CACertPath()); err != nil {
-		return err
+		return fmt.Errorf("Prepare CA cert destination: %w", err)
 	}
 	if err := idb.Initialize(); err != nil {
 		return err
@@ -145,15 +171,6 @@ func Run(env *action.Environment, cfg *Config) error {
 	if err != nil {
 		return err
 	}
-
-	/*
-		cert, _ := zx509.ParseCertificate(certDer)
-		lintrs := zlint.LintCertificate(cert)
-		j, _ := json.Marshal(lintrs.Results)
-		var buf bytes.Buffer
-		json.Indent(&buf, j, "", " ")
-		log.Printf("%s", buf.String())
-	*/
 
 	if err := profile.WriteCACertificateDer(certDer); err != nil {
 		return err

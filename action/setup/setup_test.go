@@ -1,7 +1,6 @@
 package setup_test
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -24,7 +23,7 @@ func init() {
 func testEnv(t *testing.T) (*action.Environment, func()) {
 	t.Helper()
 
-	basedir, err := ioutil.TempDir("", "kmgm_issue_test")
+	basedir, err := os.MkdirTemp("", "kmgm_issue_test")
 	if err != nil {
 		t.Fatalf("ioutil.TempDir: %v", err)
 	}
@@ -39,6 +38,9 @@ func testEnv(t *testing.T) (*action.Environment, func()) {
 	}
 
 	env, err := action.NewEnvironment(fe, stor)
+	if err != nil {
+		t.Fatalf("action.NewEnvironment: %v", err)
+	}
 	env.Frontend = &frontend.NonInteractive{Logger: zap.L()}
 
 	return env, func() {

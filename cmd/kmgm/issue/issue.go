@@ -138,22 +138,20 @@ func PromptCertPath(env *action.Environment, privPath, certPath string) (string,
 	if certPath == "" {
 		privDir := filepath.Dir(privPath)
 		certPath = filepath.Join(privDir, "cert.pem")
-		items := []frontend.ConfigItem{
-			frontend.ConfigItem{
-				Label: "Certificate pem file",
-				Validate: func(s string) error {
-					if s == privPath {
-						return ErrCertKeyPathConflict
-					}
-					if err := validate.File(s); err != nil {
-						return err
-					}
+		items := []frontend.ConfigItem{{
+			Label: "Certificate pem file",
+			Validate: func(s string) error {
+				if s == privPath {
+					return ErrCertKeyPathConflict
+				}
+				if err := validate.File(s); err != nil {
+					return err
+				}
 
-					return nil
-				},
-				Value: &certPath,
+				return nil
 			},
-		}
+			Value: &certPath,
+		}}
 		if err := env.Frontend.Configure(items); err != nil {
 			return "", err
 		}

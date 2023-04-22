@@ -10,6 +10,7 @@ import (
 
 type KeyType int
 
+// Keep this in sync with pb.KeyType
 const (
 	KeyAny KeyType = iota
 	KeyRSA4096

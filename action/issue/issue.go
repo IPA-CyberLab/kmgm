@@ -67,10 +67,11 @@ func createCertificate(env *action.Environment, now time.Time, pub crypto.Public
 		"pubkeyhash", pubkeyhash,
 		"cacpubkeyhash", capubkeyhash,
 		"serial", serial,
+		"validity", cfg.Validity,
 	)
 
 	start := time.Now()
-	slog.Info("Generating certificate...")
+	slog.Info("Generating leaf certificate...")
 
 	kt, err := wcrypto.KeyTypeOfPub(pub)
 	if err != nil {
@@ -136,7 +137,7 @@ func createCertificate(env *action.Environment, now time.Time, pub crypto.Public
 		return nil, fmt.Errorf("Create cert failed: %w", err)
 	}
 
-	slog.Infow("Generating certificate... Done.", "took", time.Now().Sub(start))
+	slog.Infow("Generating leaf certificate... Done.", "took", time.Now().Sub(start))
 	return certDer, nil
 }
 
