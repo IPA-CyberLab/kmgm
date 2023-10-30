@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"time"
 )
 
 const immediatelyToken = "immediately"
@@ -56,6 +57,10 @@ func (d *Days) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		return err
 	}
 	return nil
+}
+
+func (d Days) ToDuration() time.Duration {
+	return time.Duration(d) * 24 * time.Hour
 }
 
 var (

@@ -3,7 +3,6 @@ package app
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"strings"
 	"time"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/IPA-CyberLab/kmgm/action"
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/app/appflags"
+	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/batch"
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/issue"
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/list"
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/remote"
@@ -96,6 +96,7 @@ func New() *cli.App {
 	app.Commands = []*cli.Command{
 		setup.Command,
 		issue.Command,
+		batch.Command,
 		list.Command,
 		remote.Command,
 		serve.Command,
@@ -103,6 +104,12 @@ func New() *cli.App {
 		show.Command,
 	}
 	BeforeImpl := func(c *cli.Context) error {
+		cmd := resolveCmd(c)
+		if cmd == batch.Command {
+			af.NoDefault = true
+			af.NonInteractive = true
+		}
+
 		if err := structflags.PopulateStructFromCliContext(&af, c); err != nil {
 			return err
 		}
@@ -119,7 +126,6 @@ func New() *cli.App {
 			cfg.DisableCaller = !af.LogLocation
 			if !af.LogJson {
 				cfg.Encoding = "console"
-				cmd := resolveCmd(c)
 				switch cmd {
 				case serve.Command:
 					cfg.EncoderConfig.EncodeTime = SimpleTimeEncoder
@@ -153,7 +159,7 @@ func New() *cli.App {
 				r = f
 			}
 
-			bs, err := ioutil.ReadAll(r)
+			bs, err := io.ReadAll(r)
 			if err != nil {
 				return fmt.Errorf("Failed to read specified config file %q: %w", af.Config, err)
 			}

@@ -26,6 +26,19 @@ func mockNowImpl(t time.Time) func() time.Time {
 	}
 }
 
+type mockClock struct {
+	t time.Time
+}
+
+func (c mockClock) Now() time.Time {
+	return c.t
+}
+
+func (c mockClock) NewTicker(duration time.Duration) *time.Ticker {
+	panic("not implemented")
+	return nil
+}
+
 func Env(t *testing.T, basedir string, mockNow time.Time) *action.Environment {
 	stor, err := storage.New(basedir)
 	if err != nil {
@@ -50,7 +63,7 @@ func Run(t *testing.T, ctx context.Context, basedir string, configYaml []byte, a
 
 	zobs, logs := observer.New(zapcore.DebugLevel)
 
-	logger := zap.New(zobs)
+	logger := zap.New(zobs, zap.WithClock(mockClock{mockNow}))
 	a.Metadata["Logger"] = logger
 	a.Metadata["NowImpl"] = mockNowImpl(mockNow)
 

@@ -39,13 +39,11 @@ func PrepareKeyTypePath(env *action.Environment, ktype *wcrypto.KeyType, privPat
 
 	if *privPath == "" {
 		*privPath = filepath.Join(cwd, "key.pem")
-		items := []frontend.ConfigItem{
-			frontend.ConfigItem{
-				Label:    "Private key file",
-				Validate: validate.File,
-				Value:    privPath,
-			},
-		}
+		items := []frontend.ConfigItem{{
+			Label:    "Private key file",
+			Validate: validate.File,
+			Value:    privPath,
+		}}
 		if err := env.Frontend.Configure(items); err != nil {
 			return err
 		}
@@ -317,7 +315,7 @@ type CertStillValidErr struct {
 func (e CertStillValidErr) Error() string {
 	days := (e.ValidLeft / (24 * time.Hour))
 	return fmt.Sprintf("Existing cert valid for %dd (%v), which is more than renewBefore %v (%v)",
-		days, e.ValidLeft, e.RenewBefore, time.Duration(e.RenewBefore)*24*time.Hour)
+		days, e.ValidLeft, e.RenewBefore, e.RenewBefore.ToDuration())
 }
 
 func (CertStillValidErr) Is(target error) bool {
@@ -354,12 +352,12 @@ func (c *Config) verifyExistingCert(env *action.Environment, pub crypto.PublicKe
 		validLeft := cert.NotAfter.Sub(now)
 		s.Infof("Existing cert valid until %s.", cert.NotAfter.Format(time.UnixDate))
 
-		if d := time.Duration(c.RenewBefore) * 24 * time.Hour; d == 0 {
+		if d := c.RenewBefore.ToDuration(); d == 0 {
 			s.Infof("Proceeding anyways, since an immediate renewal was specified.")
 		} else if validLeft > d {
 			return CertStillValidErr{ValidLeft: validLeft, RenewBefore: c.RenewBefore}
 		} else {
-			s.Infof("Existing cert valid for %s, which is less than renewBefore %v (%v). Proceeding.", validLeft, c.RenewBefore, d)
+			s.Infof("Existing cert valid for %s, which is less than renewBefore %v (%v). Proceeding with renewal.", validLeft, c.RenewBefore, d)
 		}
 
 		return nil
@@ -472,6 +470,10 @@ func ActionImpl(strategy Strategy, c *cli.Context) error {
 		return err
 	}
 
+	return IssuePrivateKeyAndCertificateFile(c.Context, env, strategy, cfg)
+}
+
+func IssuePrivateKeyAndCertificateFile(ctx context.Context, env *action.Environment, strategy Strategy, cfg *Config) error {
 	priv, err := EnsurePrivateKey(env, cfg.Issue.KeyType, cfg.PrivateKeyPath)
 	if err != nil {
 		return err
@@ -482,7 +484,7 @@ func ActionImpl(strategy Strategy, c *cli.Context) error {
 		return err
 	}
 
-	certDer, err := strategy.Issue(c.Context, env, pub, cfg.Issue)
+	certDer, err := strategy.Issue(ctx, env, pub, cfg.Issue)
 	if err != nil {
 		return err
 	}

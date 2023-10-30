@@ -2,8 +2,9 @@ package testutils
 
 import (
 	"errors"
-	"io/ioutil"
 	"os"
+	"os/exec"
+	"path"
 	"regexp"
 	"testing"
 
@@ -24,13 +25,50 @@ func init() {
 func PrepareBasedir(t *testing.T) string {
 	t.Helper()
 
-	basedir, err := ioutil.TempDir("", "kmgm-testdir-*")
+	basedir, err := os.MkdirTemp("", "kmgm-testdir-*")
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { os.RemoveAll(basedir) })
 
 	return basedir
+}
+
+func ExpectEmptyDir(t *testing.T, basedirDummy string) {
+	t.Helper()
+
+	f, err := os.Open(basedirDummy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	des, err := f.ReadDir(-1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, de := range des {
+		t.Error("Found unexpected file:", de.Name())
+	}
+}
+
+func ExpectFile(t *testing.T, basedir string, relpath string) {
+	t.Helper()
+
+	filepath := path.Join(basedir, relpath)
+
+	if _, err := os.Stat(filepath); err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			t.Errorf("Unexpected error when Stat(%q): %v", filepath, err)
+		}
+		t.Errorf("File %s does not exist.", filepath)
+
+		cmd := exec.Command("tree", basedir)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Errorf("Error running tree command: %v", err)
+		}
+		t.Logf("Directory structure of %s:\n%s", basedir, out)
+		return
+	}
 }
 
 func ExpectLogMessage(t *testing.T, logs *observer.ObservedLogs, expectedRE string) {
@@ -75,4 +113,10 @@ func ExpectErr(t *testing.T, actual, expected error) {
 		return
 	}
 	t.Errorf("Expected err %v, but got err: %v", expected, actual)
+}
+
+func RemoveExistingFile(t *testing.T, fpath string) {
+	if err := os.Remove(fpath); err != nil {
+		t.Errorf("os.Remove(%q) failed: %v", fpath, err)
+	}
 }

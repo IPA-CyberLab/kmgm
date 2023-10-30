@@ -1,6 +1,7 @@
 package main_test
 
 import (
+	"bytes"
 	"context"
 	"crypto"
 	"crypto/rand"
@@ -9,6 +10,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"testing"
+	"text/template"
 	"time"
 
 	"go.uber.org/zap"
@@ -16,6 +18,7 @@ import (
 	issuea "github.com/IPA-CyberLab/kmgm/action/issue"
 	setupa "github.com/IPA-CyberLab/kmgm/action/setup"
 	main "github.com/IPA-CyberLab/kmgm/cmd/kmgm"
+	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/batch"
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/issue"
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/setup"
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/testkmgm"
@@ -76,17 +79,20 @@ func TestSetup_EmptyConfig(t *testing.T) {
 func TestSetup_Default(t *testing.T) {
 	basedir := testutils.PrepareBasedir(t)
 
-	yaml := []byte(`
+	yaml := []byte(fmt.Sprintf(`
 noDefault: false
 
 setup:
   subject:
     commonName: test
-`)
+
+copyCACertPath: %s
+`, filepath.Join(basedir, "out/cacert.pem")))
 
 	logs, err := testkmgm.Run(t, context.Background(), basedir, yaml, []string{"setup"}, testkmgm.NowDefault)
 	testutils.ExpectErr(t, err, nil)
 	testutils.ExpectLogMessage(t, logs, "CA setup successfully completed")
+	testutils.ExpectFile(t, basedir, "out/cacert.pem")
 }
 
 func TestSetup_NoDefault(t *testing.T) {
@@ -780,4 +786,108 @@ noDefault: true
 	})
 
 	// FIXME[P2]: check if specified san conforms to name constraints of the CA.
+}
+
+func Test_Batch_No_NoDefault(t *testing.T) {
+	basedir := testutils.PrepareBasedir(t)
+
+	yaml := []byte(`
+noDefault: false
+`)
+
+	logs, err := testkmgm.Run(t, context.Background(), basedir, yaml, []string{"batch"}, testkmgm.NowDefault)
+	testutils.ExpectErr(t, err, batch.ErrMustUseNoDefault)
+	_ = logs
+}
+
+func Test_Batch_Basic(t *testing.T) {
+	basedirDummy := testutils.PrepareBasedir(t)
+	basedirReal := testutils.PrepareBasedir(t)
+
+	tmpl := `
+baseDir: {{ .BaseDirReal }}
+profile: batchTestCA
+
+setup:
+  subject:
+    commonName: batchTestCA
+
+  validity: farfuture
+  keyType: ecdsa
+
+copyCACertPath: {{ .BaseDirReal }}/out/ca.cert.pem
+
+issues:
+- certPath: {{ .BaseDirReal }}/out/leaf1.cert.pem
+  privateKeyPath: {{ .BaseDirReal }}/out/leaf1.priv.pem
+  renewBefore: 10d
+  issue:
+    subject:
+      commonName: leaf1
+    keyUsage:
+      preset: tlsClientServer
+    validity: 30d
+- certPath: {{ .BaseDirReal }}/out/leaf2.cert.pem
+  privateKeyPath: {{ .BaseDirReal }}/out/leaf2.priv.pem
+  renewBefore: 10d
+  issue:
+    subject:
+      commonName: leaf2
+    keyUsage:
+      preset: tlsClientServer
+    validity: 30d
+`
+	tmplParsed := template.Must(template.New("batchTestCA").Parse(tmpl))
+
+	var yaml bytes.Buffer
+	if err := tmplParsed.Execute(&yaml, struct {
+		BaseDirReal string
+	}{
+		BaseDirReal: basedirReal,
+	}); err != nil {
+		t.Fatalf("Failed to execute template: %v", err)
+	}
+
+	nowT := testkmgm.NowDefault
+	logs, err := testkmgm.Run(t, context.Background(), basedirDummy, yaml.Bytes(),
+		[]string{"batch"}, nowT)
+	testutils.ExpectErr(t, err, nil)
+	testutils.ExpectLogMessage(t, logs, "CA setup successfully completed")
+	testutils.ExpectEmptyDir(t, basedirDummy)
+	testutils.ExpectFile(t, basedirReal, "out/ca.cert.pem")
+	testutils.ExpectFile(t, basedirReal, "out/leaf1.cert.pem")
+	testutils.ExpectFile(t, basedirReal, "out/leaf1.priv.pem")
+	testutils.ExpectFile(t, basedirReal, "out/leaf2.cert.pem")
+	testutils.ExpectFile(t, basedirReal, "out/leaf2.priv.pem")
+
+	testutils.RemoveExistingFile(t, filepath.Join(basedirReal, "out/ca.cert.pem"))
+
+	nowT = nowT.Add(5 * 24 * time.Hour)
+	logs, err = testkmgm.Run(t, context.Background(), basedirDummy, yaml.Bytes(),
+		[]string{"batch"}, nowT)
+
+	testutils.ExpectErr(t, err, issue.CertStillValidErr{})
+	testutils.ExpectFile(t, basedirReal, "out/ca.cert.pem")
+
+	leaf1, err := storage.ReadCertificateFile(filepath.Join(basedirReal, "out/leaf1.cert.pem"))
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	if nowT.Sub(leaf1.NotBefore) < time.Hour {
+		t.Errorf("Shouldn't have renewed, but renewed. leaf1.NotBefore=%v", leaf1.NotBefore)
+	}
+
+	nowT = nowT.Add(20 * 24 * time.Hour)
+	logs, err = testkmgm.Run(t, context.Background(), basedirDummy, yaml.Bytes(),
+		[]string{"batch"}, nowT)
+	testutils.ExpectErr(t, err, nil)
+	testutils.ExpectLogMessage(t, logs, "Proceeding with renewal")
+
+	leaf1, err = storage.ReadCertificateFile(filepath.Join(basedirReal, "out/leaf1.cert.pem"))
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	if nowT.Sub(leaf1.NotBefore) > time.Hour {
+		t.Errorf("Expected renewal, but not renewed. leaf1.NotBefore=%v", leaf1.NotBefore)
+	}
 }

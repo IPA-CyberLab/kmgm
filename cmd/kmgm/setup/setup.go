@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"os"
+	"path"
 
 	"github.com/urfave/cli/v2"
 	"gopkg.in/yaml.v3"
@@ -20,6 +22,8 @@ import (
 
 type Config struct {
 	Setup *setup.Config `yaml:"setup" flags:""`
+
+	CopyCACertPath string `yaml:"copyCACertPath" flags:"copy-ca-cert-path,copy CA cert to the specified path,,path"`
 
 	// This is here to avoid yaml.v3 Decoder with KnownFields(true) throwing error for valid AppFlags fields
 	XXX_AppFlags appflags.AppFlags `yaml:",inline"`
@@ -45,6 +49,10 @@ func DefaultConfig(env *action.Environment) *Config {
 	}
 
 	return &Config{Setup: setup.DefaultConfig(dname.FromGeoip(geo))}
+}
+
+func EmptyConfig() *Config {
+	return &Config{Setup: setup.EmptyConfig()}
 }
 
 const configTemplateText = `
@@ -73,7 +81,7 @@ setup:
 {{ end -}}
 `
 
-var CantRunInteractiveCASetupErr = errors.New("EnsureCA: Could not resort to interactive CA setupnon-interactive frontend.")
+var CantRunInteractiveCASetupErr = errors.New("EnsureCA: Could not resort to interactive CA setup: non-interactive frontend.")
 
 type EnsureCAMode int
 
@@ -149,6 +157,50 @@ func EnsureCA(env *action.Environment, cfg *Config, profile *storage.Profile, mo
 	return nil
 }
 
+func CopyCACert(env *action.Environment, cfg *Config, profile *storage.Profile) error {
+	slog := env.Logger.Sugar()
+
+	if cfg.CopyCACertPath == "" {
+		slog.Debugf("CopyCACertPath is not set. Skipping CA cert copy.")
+		return nil
+	}
+
+	if st := profile.Status(env.NowImpl()); st.Code != storage.ValidCA {
+		return fmt.Errorf("CA status is not valid: %v", st)
+	}
+
+	cacertpath := profile.CACertPath()
+	cacertbs, err := os.ReadFile(cacertpath)
+	if err != nil {
+		return fmt.Errorf("Failed to read CA cert: %w", err)
+	}
+
+	if st, err := os.Stat(cfg.CopyCACertPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+		if !st.Mode().IsRegular() {
+			return fmt.Errorf("copyCACertPath %q is not a regular file", cfg.CopyCACertPath)
+		}
+
+		existingbs, err := os.ReadFile(cfg.CopyCACertPath)
+		if err != nil {
+			return fmt.Errorf("Failed to read existing file %q at copyCACertPath: %w", cfg.CopyCACertPath, err)
+		}
+		if bytes.Equal(existingbs, cacertbs) {
+			slog.Infof("Up to date CA cert already exists at %q. Skipping write.", cfg.CopyCACertPath)
+			return nil
+		}
+	}
+
+	dirpath := path.Dir(cfg.CopyCACertPath)
+	if err := os.MkdirAll(dirpath, 0755); err != nil {
+		return fmt.Errorf("Failed to mkdir %q: %w", dirpath, err)
+	}
+
+	if err := os.WriteFile(cfg.CopyCACertPath, cacertbs, 0644); err != nil {
+		return fmt.Errorf("Failed to write CA cert: %w", err)
+	}
+	return nil
+}
+
 var Command = &cli.Command{
 	Name:  "setup",
 	Usage: "Setup Komagome PKI",
@@ -205,6 +257,9 @@ var Command = &cli.Command{
 			mode = AllowNonInteractiveSetupAndRequireCompatibleConfig
 		}
 		if err := EnsureCA(env, cfg, profile, mode); err != nil {
+			return err
+		}
+		if err := CopyCACert(env, cfg, profile); err != nil {
 			return err
 		}
 
