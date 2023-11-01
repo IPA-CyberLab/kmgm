@@ -280,7 +280,7 @@ func (s *Profile) Status(now time.Time) (st *CAStatus) {
 
 func WriteCertificateDerFile(p string, certDer []byte) error {
 	certPem := pemparser.MarshalCertificateDer(certDer)
-	if err := ioutil.WriteFile(p, certPem, 0644); err != nil {
+	if err := os.WriteFile(p, certPem, 0644); err != nil {
 		return fmt.Errorf("CA cert write to %q failed: %w", p, err)
 	}
 	return nil
