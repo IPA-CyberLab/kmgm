@@ -12,9 +12,11 @@ var testcases = []struct {
 	Validity period.ValidityPeriod
 	String   string
 }{
+	{period.ValidityPeriod{Days: period.DaysUnset}, "<unset>"},
+	{period.ValidityPeriod{Days: 0}, "immediately"},
 	{period.ValidityPeriod{Days: 123}, "123d"},
 	{period.ValidityPeriod{Days: 245}, "245d"},
-	{period.ValidityPeriod{Days: 3650}, "10y"},
+	{period.ValidityPeriod{Days: 3650}, "10y0d"},
 	{period.ValidityPeriod{NotAfter: time.Date(2019, 6, 1, 0, 0, 0, 0, time.Local)}, "20190601"},
 	{period.FarFuture, "farfuture"},
 }
