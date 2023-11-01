@@ -9,42 +9,73 @@ import (
 
 const immediatelyToken = "immediately"
 
-type Days uint
+type Days int
+
+const (
+	DaysUnset       Days = -1
+	DaysImmediately Days = 0
+)
 
 func (d Days) String() string {
-	if d == 0 {
+	switch d {
+	case DaysUnset:
+		return "<unset>"
+	case 0:
 		return immediatelyToken
+	default:
 	}
-	if d%365 == 0 {
-		return fmt.Sprintf("%dy", d/365)
+
+	left := d
+
+	years := left / 365
+	left -= years * 365
+	if years > 0 {
+		return fmt.Sprintf("%dy%dd", years, left)
+	} else {
+		return fmt.Sprintf("%dd", left)
 	}
-	return fmt.Sprintf("%dd", d)
 }
 
+var (
+	reYears = regexp.MustCompile(`^(\d+)y(.*)`)
+	reDays  = regexp.MustCompile(`^(\d+)d$`)
+)
+
 func (d *Days) UnmarshalFlag(s string) error {
-	if s == immediatelyToken {
+	switch s {
+	case "", "<unset>":
+		*d = DaysUnset
+		return nil
+	case immediatelyToken:
 		*d = Days(0)
 		return nil
+	default:
 	}
-	if ms := reDays.FindStringSubmatch(s); len(ms) > 0 {
-		u, err := strconv.ParseUint(ms[1], 10, 32)
-		if err != nil {
-			return fmt.Errorf("Failed to parse days uint %q.", ms[1])
-		}
-		*d = Days(uint(u))
 
-		return nil
-	}
-	if ms := reYears.FindStringSubmatch(s); len(ms) > 0 {
+	*d = Days(0)
+	left := s
+
+	if ms := reYears.FindStringSubmatch(left); len(ms) > 0 {
 		u, err := strconv.ParseUint(ms[1], 10, 32)
 		if err != nil {
 			return fmt.Errorf("Failed to parse years uint %q.", ms[1])
 		}
-		*d = Days(uint(u) * 365)
+		*d += Days(uint(u) * 365)
+		left = ms[2]
+		if left == "" {
+			return nil
+		}
+	}
+
+	if ms := reDays.FindStringSubmatch(left); len(ms) > 0 {
+		u, err := strconv.ParseUint(ms[1], 10, 32)
+		if err != nil {
+			return fmt.Errorf("Failed to parse days uint %q.", ms[1])
+		}
+		*d += Days(uint(u))
 
 		return nil
 	}
-
 	return fmt.Errorf("Failed to parse Days %q. Try something like 30d, 1y.", s)
 }
 
@@ -62,8 +93,3 @@ func (d *Days) UnmarshalYAML(unmarshal func(interface{}) error) error {
 func (d Days) ToDuration() time.Duration {
 	return time.Duration(d) * 24 * time.Hour
 }
-
-var (
-	reDays  = regexp.MustCompile(`^(\d+)d$`)
-	reYears = regexp.MustCompile(`^(\d+)y$`)
-)
