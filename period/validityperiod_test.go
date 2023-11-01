@@ -12,7 +12,7 @@ var testcases = []struct {
 	Validity period.ValidityPeriod
 	String   string
 }{
-	{period.ValidityPeriod{Days: period.DaysUnset}, "<unset>"},
+	{period.ValidityPeriod{Days: period.DaysAuto}, "auto"},
 	{period.ValidityPeriod{Days: 0}, "immediately"},
 	{period.ValidityPeriod{Days: 123}, "123d"},
 	{period.ValidityPeriod{Days: 245}, "245d"},

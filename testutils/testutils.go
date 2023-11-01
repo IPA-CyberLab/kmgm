@@ -71,6 +71,21 @@ func ExpectFile(t *testing.T, basedir string, relpath string) {
 	}
 }
 
+func ExpectFileNotExist(t *testing.T, basedir, relpath string) {
+	t.Helper()
+
+	filepath := path.Join(basedir, relpath)
+
+	if _, err := os.Stat(filepath); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return
+		}
+		t.Errorf("Unexpected error when Stat(%q): %v", filepath, err)
+		return
+	}
+	t.Errorf("File %s exists while it shouldn't.", filepath)
+}
+
 func ExpectLogMessage(t *testing.T, logs *observer.ObservedLogs, expectedRE string) {
 	t.Helper()
 

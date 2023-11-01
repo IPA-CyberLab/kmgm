@@ -8,18 +8,19 @@ import (
 )
 
 const immediatelyToken = "immediately"
+const autoToken = "auto"
 
 type Days int
 
 const (
-	DaysUnset       Days = -1
+	DaysAuto        Days = -1
 	DaysImmediately Days = 0
 )
 
 func (d Days) String() string {
 	switch d {
-	case DaysUnset:
-		return "<unset>"
+	case DaysAuto:
+		return autoToken
 	case 0:
 		return immediatelyToken
 	default:
@@ -43,8 +44,8 @@ var (
 
 func (d *Days) UnmarshalFlag(s string) error {
 	switch s {
-	case "", "<unset>":
-		*d = DaysUnset
+	case "", "auto":
+		*d = DaysAuto
 		return nil
 	case immediatelyToken:
 		*d = Days(0)

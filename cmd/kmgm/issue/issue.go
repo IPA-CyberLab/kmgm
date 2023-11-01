@@ -6,6 +6,7 @@ import (
 	"crypto"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"time"
@@ -315,7 +316,7 @@ type CertStillValidErr struct {
 func (e CertStillValidErr) Error() string {
 	days := (e.ValidLeft / (24 * time.Hour))
 	return fmt.Sprintf("Existing cert valid for %dd (%v), which is more than renewBefore %v (%v)",
-		days, e.ValidLeft, e.RenewBefore, e.RenewBefore.ToDuration())
+		days, e.ValidLeft, e.RenewBefore, e.RenewBefore)
 }
 
 func (CertStillValidErr) Is(target error) bool {
@@ -352,12 +353,19 @@ func (c *Config) verifyExistingCert(env *action.Environment, pub crypto.PublicKe
 		validLeft := cert.NotAfter.Sub(now)
 		s.Infof("Existing cert valid until %s.", cert.NotAfter.Format(time.UnixDate))
 
-		if d := c.RenewBefore.ToDuration(); d == 0 {
+		renewBefore := c.RenewBefore
+		if renewBefore == period.DaysAuto {
+			validityDays := cert.NotAfter.Sub(cert.NotBefore).Hours() / 24
+			renewBefore = period.Days((int)(math.Ceil(validityDays * 2 / 3)))
+			s.Infof("renewBefore auto configured to 2/3 of the cert validity period, which is %v.", renewBefore)
+		}
+		switch {
+		case renewBefore == period.DaysImmediately:
 			s.Infof("Proceeding anyways, since an immediate renewal was specified.")
-		} else if validLeft > d {
+		case validLeft > renewBefore.ToDuration():
 			return CertStillValidErr{ValidLeft: validLeft, RenewBefore: c.RenewBefore}
-		} else {
-			s.Infof("Existing cert valid for %s, which is less than renewBefore %v (%v). Proceeding with renewal.", validLeft, c.RenewBefore, d)
+		default:
+			s.Infof("Existing cert valid for %s, which is less than renewBefore %v. Proceeding with renewal.", validLeft, c.RenewBefore)
 		}
 
 		return nil
@@ -373,13 +381,18 @@ func (c *Config) verifyExistingCert(env *action.Environment, pub crypto.PublicKe
 	}
 }
 
-func (c *Config) Verify(env *action.Environment) error {
+var RenewBeforeMustNotBeAutoIfNoDefaultErr = errors.New("renewBefore must not be auto if noDefault is specified.")
+
+func (c *Config) Verify(env *action.Environment, noDefault bool) error {
 	if err := c.Issue.Verify(env.NowImpl()); err != nil {
 		return err
 	}
 	pub, err := VerifyKeyType(c.PrivateKeyPath, c.Issue.KeyType)
 	if err != nil {
 		return err
+	}
+	if noDefault && c.RenewBefore == period.DaysAuto {
+		return RenewBeforeMustNotBeAutoIfNoDefaultErr
 	}
 	if err := c.verifyExistingCert(env, pub); err != nil {
 		return err
@@ -416,10 +429,10 @@ func ActionImpl(strategy Strategy, c *cli.Context) error {
 			baseSubject = dname.FromGeoip(geo)
 		}
 
-		cfg = &Config{Issue: issue.DefaultConfig(baseSubject)}
+		cfg = &Config{Issue: issue.DefaultConfig(baseSubject), RenewBefore: period.DaysAuto}
 	} else {
 		slog.Debugf("Config is from scratch.")
-		cfg = &Config{Issue: issue.EmptyConfig()}
+		cfg = &Config{Issue: issue.EmptyConfig(), RenewBefore: period.DaysAuto}
 	}
 
 	if !c.Bool("dump-template") {
@@ -462,7 +475,7 @@ func ActionImpl(strategy Strategy, c *cli.Context) error {
 	if err := frontend.EditStructWithVerifier(
 		env.Frontend, ConfigTemplateText, cfg, func(cfgI interface{}) error {
 			cfg := cfgI.(*Config)
-			if err := cfg.Verify(env); err != nil {
+			if err := cfg.Verify(env, af.NoDefault); err != nil {
 				return err
 			}
 			return nil

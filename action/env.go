@@ -83,7 +83,7 @@ func (env *Environment) LoadConnectionInfo() error {
 	slog := env.Logger.Sugar()
 	path := env.Storage.ConnectionInfoPath()
 
-	bs, err := ioutil.ReadFile(path)
+	bs, err := os.ReadFile(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			slog.Warnf("Could not find server connection info file %q. Ignoring.", path)

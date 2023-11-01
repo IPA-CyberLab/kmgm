@@ -106,7 +106,7 @@ func Action(c *cli.Context) error {
 		}
 		issueCfg.CertPath = newCertPath
 
-		if err := issueCfg.Verify(env); err != nil {
+		if err := issueCfg.Verify(env, af.NoDefault); err != nil {
 			return fmt.Errorf("batch: issue[%d]: %w", i, err)
 		}
 		if err := issuecmd.IssuePrivateKeyAndCertificateFile(c.Context, env, issuecmd.Local{}, issueCfg); err != nil {

@@ -10,7 +10,7 @@ func TestDays_UnmarshalFlag(t *testing.T) {
 		s       string
 		wantErr bool
 	}{
-		{DaysUnset, "", false},
+		{DaysAuto, "", false},
 		{Days(0), "immediately", false},
 		{Days(1), "1d", false},
 		{Days(365), "1y", false},

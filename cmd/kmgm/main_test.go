@@ -333,6 +333,7 @@ issue:
     preset: tlsClientServer
   validity: 30d
 
+renewBefore: 10d
 noDefault: true
 `)
 
@@ -353,6 +354,32 @@ noDefault: true
 	if ss != "CN=leaf_CN" {
 		t.Errorf("subj: %s", cert.Subject.String())
 	}
+}
+
+func TestIssue_NoDefault_RequireRenewBeforeToBeSet(t *testing.T) {
+	basedir := testutils.PrepareBasedir(t)
+
+	setupCA(t, basedir)
+
+	yaml := []byte(`
+issue:
+  subject:
+    commonName: leaf_CN
+  keyType: rsa
+  keyUsage:
+    preset: tlsClientServer
+  validity: 30d
+
+noDefault: true
+`)
+
+	certPath := filepath.Join(basedir, "issue.cert.pem")
+	_, err := testkmgm.Run(t, context.Background(), basedir, yaml, []string{"issue",
+		"--priv", filepath.Join(basedir, "issue.priv.pem"),
+		"--cert", certPath,
+	}, testkmgm.NowDefault)
+	testutils.ExpectErr(t, err, issue.RenewBeforeMustNotBeAutoIfNoDefaultErr)
+	testutils.ExpectFileNotExist(t, basedir, "issue.cert.pem")
 }
 
 func TestIssue_WrongKeyType(t *testing.T) {
@@ -421,6 +448,7 @@ issue:
 
 certPath: %s
 privateKeyPath: %s
+renewBefore: 10d
 
 noDefault: true
 `, certPath, privPath))
@@ -480,6 +508,14 @@ func setupCertAtPath(t *testing.T, basedir string, pub crypto.PublicKey, certPat
 	}
 }
 
+func serialNumberStringOfCertAtPath(path string) string {
+	cert, err := storage.ReadCertificateFile(path)
+	if err != nil {
+		panic(err)
+	}
+	return cert.SerialNumber.String()
+}
+
 func setupCert(t *testing.T, basedir string, pub crypto.PublicKey) string {
 	t.Helper()
 
@@ -488,7 +524,7 @@ func setupCert(t *testing.T, basedir string, pub crypto.PublicKey) string {
 	return certPath
 }
 
-func TestIssue_RenewCert_NoDefault(t *testing.T) {
+func TestIssue_RenewCert(t *testing.T) {
 	basedir := testutils.PrepareBasedir(t)
 
 	setupCA(t, basedir)
@@ -521,6 +557,7 @@ func TestIssue_RenewCert_NoDefault(t *testing.T) {
 
       certPath: %s
       privateKeyPath: %s
+      renewBefore: 10d
 
       noDefault: true
       `, certPath, privPath))
@@ -543,6 +580,7 @@ func TestIssue_RenewCert_NoDefault(t *testing.T) {
 
       certPath: %s
       privateKeyPath: %s
+      renewBefore: 10d
 
       noDefault: true
       `, certPath, privPath))
@@ -571,6 +609,7 @@ func TestIssue_RenewCert_NoDefault(t *testing.T) {
 
       certPath: %s
       privateKeyPath: %s
+      renewBefore: 10d
 
       noDefault: true
       `, certPath, privPath))
@@ -602,11 +641,9 @@ func TestIssue_RenewCert_NoDefault(t *testing.T) {
 
       certPath: %s
       privateKeyPath: %s
-
-      noDefault: true
       `, certPath, privPath))
 
-		logs, err := testkmgm.Run(t, context.Background(), basedir, yaml, []string{"issue"}, testkmgm.NowDefault)
+		logs, err := testkmgm.Run(t, context.Background(), basedir, yaml, []string{"issue"}, testkmgm.NowDefault.Add(time.Hour*24))
 		testutils.ExpectErr(t, err, nil)
 		testutils.ExpectLogMessage(t, logs, "Generating leaf certificate... Done.")
 
@@ -626,6 +663,7 @@ func TestIssue_RenewCert_NoDefault(t *testing.T) {
 	t.Run("RenewBefore_NotYet", func(t *testing.T) {
 		certPath := filepath.Join(basedir, "renewBefore.cert.pem")
 		setupCertAtPath(t, basedir, pub, certPath)
+		snOriginal := serialNumberStringOfCertAtPath(certPath)
 
 		yaml := []byte(fmt.Sprintf(`
       issue:
@@ -659,18 +697,16 @@ func TestIssue_RenewCert_NoDefault(t *testing.T) {
 		}
 		_ = logs
 
-		cert, err := storage.ReadCertificateFile(certPath)
-		if err != nil {
-			t.Fatalf("%v", err)
-		}
-		if now.Sub(cert.NotBefore) < time.Hour {
-			t.Errorf("Shouldn't have renewed, but renewed: cert.NotBefore %v", cert.NotBefore)
+		snNew := serialNumberStringOfCertAtPath(certPath)
+		if snNew != snOriginal {
+			t.Errorf("Shouldn't have renewed, but renewed.")
 		}
 	})
 
 	t.Run("RenewBefore_ExpireSoon", func(t *testing.T) {
 		certPath := filepath.Join(basedir, "renewBefore.cert.pem")
 		setupCertAtPath(t, basedir, pub, certPath)
+		snOriginal := serialNumberStringOfCertAtPath(certPath)
 
 		yaml := []byte(fmt.Sprintf(`
       issue:
@@ -701,12 +737,9 @@ func TestIssue_RenewCert_NoDefault(t *testing.T) {
 		testutils.ExpectErr(t, err, nil)
 		_ = logs
 
-		cert, err := storage.ReadCertificateFile(certPath)
-		if err != nil {
-			t.Fatalf("%v", err)
-		}
-		if now.Sub(cert.NotBefore) > time.Hour {
-			t.Errorf("Shouldn't have renewed, but renewed: cert.NotBefore %v", cert.NotBefore)
+		snNew := serialNumberStringOfCertAtPath(certPath)
+		if snNew == snOriginal {
+			t.Errorf("Should have renewed, but not renewed")
 		}
 	})
 }
@@ -754,6 +787,7 @@ issue:
     preset: tlsClientServer
   validity: 30d
 
+renewBefore: immediately
 certPath: %s
 privateKeyPath: %s
 
@@ -859,6 +893,7 @@ issues:
 	testutils.ExpectFile(t, basedirReal, "out/leaf1.priv.pem")
 	testutils.ExpectFile(t, basedirReal, "out/leaf2.cert.pem")
 	testutils.ExpectFile(t, basedirReal, "out/leaf2.priv.pem")
+	snLeaf1 := serialNumberStringOfCertAtPath(filepath.Join(basedirReal, "out/leaf1.cert.pem"))
 
 	testutils.RemoveExistingFile(t, filepath.Join(basedirReal, "out/ca.cert.pem"))
 
@@ -883,11 +918,8 @@ issues:
 	testutils.ExpectErr(t, err, nil)
 	testutils.ExpectLogMessage(t, logs, "Proceeding with renewal")
 
-	leaf1, err = storage.ReadCertificateFile(filepath.Join(basedirReal, "out/leaf1.cert.pem"))
-	if err != nil {
-		t.Fatalf("%v", err)
-	}
-	if nowT.Sub(leaf1.NotBefore) > time.Hour {
-		t.Errorf("Expected renewal, but not renewed. leaf1.NotBefore=%v", leaf1.NotBefore)
+	snLeaf2 := serialNumberStringOfCertAtPath(filepath.Join(basedirReal, "out/leaf1.cert.pem"))
+	if snLeaf1 == snLeaf2 {
+		t.Error("Expected renewal, but not renewed")
 	}
 }
