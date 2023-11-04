@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"io/ioutil"
+	mrand "math/rand"
 	"os"
 	"testing"
 	"time"
 
+	"github.com/urfave/cli/v2"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
@@ -56,6 +58,12 @@ func Env(t *testing.T, basedir string, mockNow time.Time) *action.Environment {
 	return env
 }
 
+type mrandReader struct{}
+
+func (mrandReader) Read(p []byte) (int, error) {
+	return mrand.Read(p)
+}
+
 func Run(t *testing.T, ctx context.Context, basedir string, configYaml []byte, args []string, mockNow time.Time) (*observer.ObservedLogs, error) {
 	t.Helper()
 
@@ -66,11 +74,15 @@ func Run(t *testing.T, ctx context.Context, basedir string, configYaml []byte, a
 	logger := zap.New(zobs, zap.WithClock(mockClock{mockNow}))
 	a.Metadata["Logger"] = logger
 	a.Metadata["NowImpl"] = mockNowImpl(mockNow)
+	a.Metadata["Randr"] = mrandReader{}
 
 	var stdoutBuf bytes.Buffer
 	var stderrBuf bytes.Buffer
 	a.Writer = &stdoutBuf
 	a.ErrWriter = &stderrBuf
+
+	// replace `ExitErrHandler` to avoid exiting the test process.
+	a.ExitErrHandler = func(cCtx *cli.Context, err error) {}
 
 	var tmpfile *os.File
 	if configYaml != nil {

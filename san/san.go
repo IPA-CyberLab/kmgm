@@ -58,6 +58,13 @@ type Names struct {
 	IPAddrs  []net.IP
 }
 
+func (ns Names) Clone() Names {
+	return Names{
+		DNSNames: append([]string{}, ns.DNSNames...),
+		IPAddrs:  append([]net.IP{}, ns.IPAddrs...),
+	}
+}
+
 func (ns Names) Verify() error {
 	for _, dnsn := range ns.DNSNames {
 		if err := VerifyDNSNameEntry(dnsn); err != nil {

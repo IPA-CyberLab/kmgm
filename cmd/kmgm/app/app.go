@@ -106,7 +106,6 @@ func New() *cli.App {
 	BeforeImpl := func(c *cli.Context) error {
 		cmd := resolveCmd(c)
 		if cmd == batch.Command {
-			af.NoDefault = true
 			af.NonInteractive = true
 		}
 
@@ -200,6 +199,10 @@ func New() *cli.App {
 		env.Logger = logger
 		if nowimpl, ok := app.Metadata["NowImpl"]; ok {
 			env.NowImpl = nowimpl.(func() time.Time)
+		}
+		if rr, ok := app.Metadata["Randr"]; ok {
+			logger.Sugar().Infof("rand source override: likely not crypto/rand.")
+			env.Randr = rr.(io.Reader)
 		}
 
 		action.GlobalEnvironment = env

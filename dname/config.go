@@ -205,3 +205,16 @@ func (a *Config) CompatibleWith(b *Config) error {
 	}
 	return merr
 }
+
+func (c *Config) Clone() *Config {
+	return &Config{
+		CommonName:         c.CommonName,
+		Organization:       c.Organization,
+		OrganizationalUnit: c.OrganizationalUnit,
+		Country:            c.Country,
+		Locality:           c.Locality,
+		Province:           c.Province,
+		StreetAddress:      c.StreetAddress,
+		PostalCode:         c.PostalCode,
+	}
+}

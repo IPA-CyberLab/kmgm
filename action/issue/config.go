@@ -57,6 +57,17 @@ func EmptyConfig() *Config {
 	}
 }
 
+func (o *Config) Clone() *Config {
+	return &Config{
+		Subject:        o.Subject.Clone(),
+		Names:          o.Names.Clone(),
+		KeyUsage:       o.KeyUsage,
+		Validity:       o.Validity,
+		KeyType:        o.KeyType,
+		NoIssueDBEntry: o.NoIssueDBEntry,
+	}
+}
+
 func ConfigFromCert(cert *x509.Certificate) (*Config, error) {
 	kt, err := wcrypto.KeyTypeOfPub(cert.PublicKey)
 	if err != nil {

@@ -265,6 +265,26 @@ type Config struct {
 	XXX_AppFlags appflags.AppFlags `yaml:",inline"`
 }
 
+var UnmarshalConfigTemplate *Config
+
+func init() {
+	UnmarshalConfigTemplate = &Config{
+		Issue:       issue.EmptyConfig(),
+		RenewBefore: period.DaysAuto,
+	}
+}
+
+func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	t := UnmarshalConfigTemplate
+	c.PrivateKeyPath = t.PrivateKeyPath
+	c.CertPath = t.CertPath
+	c.Issue = t.Issue.Clone()
+	c.RenewBefore = t.RenewBefore
+
+	type rawConfig Config
+	return unmarshal((*rawConfig)(c))
+}
+
 func VerifyKeyType(path string, expected wcrypto.KeyType) (crypto.PublicKey, error) {
 	priv, err := storage.ReadPrivateKeyFile(path)
 	if errors.Is(err, os.ErrNotExist) {
@@ -309,14 +329,15 @@ func (e IncompatibleCertErr) Unwrap() error {
 }
 
 type CertStillValidErr struct {
-	ValidLeft   time.Duration
-	RenewBefore period.Days
+	ValidLeft           time.Duration
+	RenewBeforeOrig     period.Days
+	RenewBeforeExpanded period.Days
 }
 
 func (e CertStillValidErr) Error() string {
-	days := (e.ValidLeft / (24 * time.Hour))
-	return fmt.Sprintf("Existing cert valid for %dd (%v), which is more than renewBefore %v (%v)",
-		days, e.ValidLeft, e.RenewBefore, e.RenewBefore)
+	days := period.Days((e.ValidLeft / (24 * time.Hour)))
+	return fmt.Sprintf("Existing cert valid for %v (→ %v), which is more than renewBefore %v (→ %v)",
+		e.ValidLeft, days, e.RenewBeforeOrig, e.RenewBeforeExpanded)
 }
 
 func (CertStillValidErr) Is(target error) bool {
@@ -363,9 +384,9 @@ func (c *Config) verifyExistingCert(env *action.Environment, pub crypto.PublicKe
 		case renewBefore == period.DaysImmediately:
 			s.Infof("Proceeding anyways, since an immediate renewal was specified.")
 		case validLeft > renewBefore.ToDuration():
-			return CertStillValidErr{ValidLeft: validLeft, RenewBefore: c.RenewBefore}
+			return CertStillValidErr{ValidLeft: validLeft, RenewBeforeOrig: c.RenewBefore, RenewBeforeExpanded: renewBefore}
 		default:
-			s.Infof("Existing cert valid for %s, which is less than renewBefore %v. Proceeding with renewal.", validLeft, c.RenewBefore)
+			s.Infof("Existing cert valid for %s, which is less than renewBefore %v (→ %v). Proceeding with renewal.", validLeft, c.RenewBefore, renewBefore)
 		}
 
 		return nil
@@ -415,7 +436,7 @@ func ActionImpl(strategy Strategy, c *cli.Context) error {
 
 	var cfg *Config
 	if c.Bool("dump-template") || !af.NoDefault {
-		slog.Debugf("Constructing default config.")
+		slog.Infof("Constructing default config.")
 
 		baseSubject := strategy.CASubject(c.Context, env)
 		if baseSubject == nil {
@@ -431,7 +452,7 @@ func ActionImpl(strategy Strategy, c *cli.Context) error {
 
 		cfg = &Config{Issue: issue.DefaultConfig(baseSubject), RenewBefore: period.DaysAuto}
 	} else {
-		slog.Debugf("Config is from scratch.")
+		slog.Infof("Config is from scratch.")
 		cfg = &Config{Issue: issue.EmptyConfig(), RenewBefore: period.DaysAuto}
 	}
 

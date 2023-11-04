@@ -6,13 +6,17 @@ import (
 	"fmt"
 
 	"github.com/urfave/cli/v2"
+	"go.uber.org/multierr"
 	"gopkg.in/yaml.v3"
 
 	"github.com/IPA-CyberLab/kmgm/action"
+	"github.com/IPA-CyberLab/kmgm/action/issue"
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/app/appflags"
 	issuecmd "github.com/IPA-CyberLab/kmgm/cmd/kmgm/issue"
 	setupcmd "github.com/IPA-CyberLab/kmgm/cmd/kmgm/setup"
-	"github.com/IPA-CyberLab/kmgm/frontend"
+	"github.com/IPA-CyberLab/kmgm/dname"
+	"github.com/IPA-CyberLab/kmgm/period"
+	"github.com/IPA-CyberLab/kmgm/storage"
 	"github.com/IPA-CyberLab/kmgm/structflags"
 )
 
@@ -37,7 +41,6 @@ type Config struct {
 }
 
 var ErrYamlMustBeProvided = errors.New("batch: yaml config must be provided. Try `kmgm -c [config.yaml] batch`")
-var ErrMustUseNoDefault = errors.New("batch: must use noDefault mode.")
 
 func Action(c *cli.Context) error {
 	cfgbs, ok := c.App.Metadata["config"]
@@ -46,32 +49,34 @@ func Action(c *cli.Context) error {
 	}
 
 	af := c.App.Metadata["AppFlags"].(*appflags.AppFlags)
-	if !af.NoDefault {
-		return ErrMustUseNoDefault
-	}
 
 	env := action.GlobalEnvironment
 	slog := env.Logger.Sugar()
 
-	if c.Bool("dump-template") {
-		cfg := &Config{
+	var cfg *Config
+	if c.Bool("dump-template") || !af.NoDefault {
+		slog.Infof("Constructing default config.")
+
+		cfg = &Config{
 			Setup: setupcmd.DefaultConfig(env),
 		}
-		if err := frontend.DumpTemplate(ConfigTemplateText, cfg); err != nil {
-			return err
+	} else {
+		slog.Infof("Config is from scratch.")
+
+		cfg = &Config{
+			Setup: setupcmd.EmptyConfig(),
 		}
-		return nil
 	}
 
-	slog.Debugf("batch config is always constructed from scratch.")
-	cfg := &Config{Setup: setupcmd.EmptyConfig()}
+	decodeConfig := func() error {
+		r := bytes.NewBuffer(cfgbs.([]byte))
 
-	r := bytes.NewBuffer(cfgbs.([]byte))
+		d := yaml.NewDecoder(r)
+		d.KnownFields(true)
 
-	d := yaml.NewDecoder(r)
-	d.KnownFields(true)
-
-	if err := d.Decode(cfg); err != nil {
+		return d.Decode(cfg)
+	}
+	if err := decodeConfig(); err != nil {
 		return err
 	}
 
@@ -87,34 +92,68 @@ func Action(c *cli.Context) error {
 		return err
 	}
 
-	for i, issueCfg := range cfg.Issues {
-		slog.Infof("batch: processing issue[%d]: %v", i, issueCfg.Issue.Subject)
+	if !af.NoDefault {
+		slog.Infof("Rereading config with to process cert issue with updated defaults.")
 
+		origTemplate := issuecmd.UnmarshalConfigTemplate
+		defer func() {
+			issuecmd.UnmarshalConfigTemplate = origTemplate
+		}()
+
+		now := env.NowImpl()
+		st := profile.Status(now)
+		if st.Code != storage.ValidCA {
+			return fmt.Errorf("BUG: CA profile %q is not valid: %v", env.ProfileName, st)
+		}
+		baseSubject := dname.FromPkixName(st.CACert.Subject)
+		issuecmd.UnmarshalConfigTemplate = &issuecmd.Config{
+			Issue:       issue.DefaultConfig(baseSubject),
+			RenewBefore: period.DaysAuto,
+		}
+
+		cfg = &Config{Setup: cfg.Setup}
+		if err := decodeConfig(); err != nil {
+			return err
+		}
+	}
+
+	processIssue := func(issueCfg *issuecmd.Config) error {
 		if issueCfg.PrivateKeyPath == "" {
-			return fmt.Errorf("batch: issue[%d]: privateKeyPath must be specified", i)
+			return fmt.Errorf("privateKeyPath must be specified")
 		}
 		if err := issuecmd.PrepareKeyTypePath(env, &issueCfg.Issue.KeyType, &issueCfg.PrivateKeyPath); err != nil {
-			return fmt.Errorf("batch: issue[%d]: %w", i, err)
+			return err
 		}
 
 		if issueCfg.CertPath == "" {
-			return fmt.Errorf("batch: issue[%d]: certPath must be specified", i)
+			return fmt.Errorf("certPath must be specified")
 		}
 		newCertPath, err := issuecmd.PromptCertPath(env, issueCfg.PrivateKeyPath, issueCfg.CertPath)
 		if err != nil {
-			return fmt.Errorf("batch: issue[%d]: %w", i, err)
+			return err
 		}
 		issueCfg.CertPath = newCertPath
 
 		if err := issueCfg.Verify(env, af.NoDefault); err != nil {
-			return fmt.Errorf("batch: issue[%d]: %w", i, err)
+			return err
 		}
 		if err := issuecmd.IssuePrivateKeyAndCertificateFile(c.Context, env, issuecmd.Local{}, issueCfg); err != nil {
-			return fmt.Errorf("batch: issue[%d]: %w", i, err)
+			return err
+		}
+		return nil
+	}
+
+	var merr error
+	for i, issueCfg := range cfg.Issues {
+		slog.Infof("batch: processing issue[%d]: %v", i, issueCfg.Issue.Subject)
+		err := processIssue(issueCfg)
+		if err != nil {
+			slog.Errorf("batch: issue[%d]: %v", i, err)
+			merr = multierr.Append(merr, fmt.Errorf("batch: issue[%d]: %w", i, err))
 		}
 	}
 
-	return nil
+	return merr
 }
 
 var Command = &cli.Command{

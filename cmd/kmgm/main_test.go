@@ -18,7 +18,6 @@ import (
 	issuea "github.com/IPA-CyberLab/kmgm/action/issue"
 	setupa "github.com/IPA-CyberLab/kmgm/action/setup"
 	main "github.com/IPA-CyberLab/kmgm/cmd/kmgm"
-	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/batch"
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/issue"
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/setup"
 	"github.com/IPA-CyberLab/kmgm/cmd/kmgm/testkmgm"
@@ -822,23 +821,71 @@ noDefault: true
 	// FIXME[P2]: check if specified san conforms to name constraints of the CA.
 }
 
-func Test_Batch_No_NoDefault(t *testing.T) {
-	basedir := testutils.PrepareBasedir(t)
-
-	yaml := []byte(`
-noDefault: false
-`)
-
-	logs, err := testkmgm.Run(t, context.Background(), basedir, yaml, []string{"batch"}, testkmgm.NowDefault)
-	testutils.ExpectErr(t, err, batch.ErrMustUseNoDefault)
-	_ = logs
-}
-
-func Test_Batch_Basic(t *testing.T) {
+func Test_Batch_Default(t *testing.T) {
 	basedirDummy := testutils.PrepareBasedir(t)
 	basedirReal := testutils.PrepareBasedir(t)
 
 	tmpl := `
+baseDir: {{ .BaseDirReal }}
+profile: batchTestCA
+
+setup:
+  subject:
+    commonName: batchTestCA
+
+copyCACertPath: {{ .BaseDirReal }}/out/ca.cert.pem
+
+issues:
+- certPath: {{ .BaseDirReal }}/out/leaf1.cert.pem
+  privateKeyPath: {{ .BaseDirReal }}/out/leaf1.priv.pem
+  issue:
+    subject:
+      commonName: leaf1
+- certPath: {{ .BaseDirReal }}/out/leaf2.cert.pem
+  privateKeyPath: {{ .BaseDirReal }}/out/leaf2.priv.pem
+  issue:
+    subject:
+      commonName: leaf2
+`
+	tmplParsed := template.Must(template.New("batchTestCA").Parse(tmpl))
+
+	var yaml bytes.Buffer
+	if err := tmplParsed.Execute(&yaml, struct {
+		BaseDirReal string
+	}{
+		BaseDirReal: basedirReal,
+	}); err != nil {
+		t.Fatalf("Failed to execute template: %v", err)
+	}
+
+	nowT := testkmgm.NowDefault
+	logs, err := testkmgm.Run(t, context.Background(), basedirDummy, yaml.Bytes(),
+		[]string{"batch"}, nowT)
+	testutils.ExpectErr(t, err, nil)
+	testutils.ExpectLogMessage(t, logs, "CA setup successfully completed")
+	testutils.ExpectEmptyDir(t, basedirDummy)
+	testutils.ExpectFile(t, basedirReal, "out/ca.cert.pem")
+	testutils.ExpectFile(t, basedirReal, "out/leaf1.cert.pem")
+	testutils.ExpectFile(t, basedirReal, "out/leaf1.priv.pem")
+	testutils.ExpectFile(t, basedirReal, "out/leaf2.cert.pem")
+	testutils.ExpectFile(t, basedirReal, "out/leaf2.priv.pem")
+
+	cert, err := storage.ReadCertificateFile(filepath.Join(basedirReal, "out/leaf1.cert.pem"))
+	if err != nil {
+		t.Errorf("Failed to ReadCertificateFile: %v", err)
+	}
+	if cert.Subject.String() != "CN=leaf1,O=host.example,ST=California,C=US" {
+		t.Errorf("Unexpected subject: %v", cert.Subject.String())
+	}
+}
+
+func Test_Batch_NoDefault(t *testing.T) {
+	basedirDummy := testutils.PrepareBasedir(t)
+	basedirReal := testutils.PrepareBasedir(t)
+
+	tmpl := `
+noDefault: true
+
 baseDir: {{ .BaseDirReal }}
 profile: batchTestCA
 
