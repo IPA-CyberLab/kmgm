@@ -21,7 +21,7 @@ import (
 )
 
 type Config struct {
-	Setup *setup.Config `yaml:"setup" flags:""`
+	Setup *setup.Config `yaml:",inline" flags:""`
 
 	CopyCACertPath string `yaml:"copyCACertPath" flags:"copy-ca-cert-path,copy CA cert to the specified path,,path"`
 
@@ -58,26 +58,25 @@ func EmptyConfig() *Config {
 const configTemplateText = `
 ---
 # kmgm PKI CA config
-setup:
 {{ with .Setup }}
-  {{ template "subject" .Subject }}
+{{ template "subject" .Subject }}
 
-  # validity specifies the lifetime the ca is valid for.
-  validity: {{ printf "%v" .Validity }}
-  # validity: 30d # valid for 30 days from now.
-  # validity: 2y # valid for 2 years from now.
-  # validity: 20220530 # valid until yyyyMMdd.
-  # validity: farfuture # valid effectively forever
+# validity specifies the lifetime the ca is valid for.
+validity: {{ printf "%v" .Validity }}
+# validity: 30d # valid for 30 days from now.
+# validity: 2y # valid for 2 years from now.
+# validity: 20220530 # valid until yyyyMMdd.
+# validity: farfuture # valid effectively forever
 
-  keyType: {{ .KeyType }}
+keyType: {{ .KeyType }}
 
-  # For advanced users only.
-  #   nameConstraints allow CA to scope subjectAltNames of its leaf certificates.
-  #   https://tools.ietf.org/html/rfc5280#section-4.2.1.10
-  nameConstraints:
-  {{- range .NameConstraints.Strings }}
-    - {{ . | YamlEscapeString }}
-  {{- end -}}
+# For advanced users only.
+#   nameConstraints allow CA to scope subjectAltNames of its leaf certificates.
+#   https://tools.ietf.org/html/rfc5280#section-4.2.1.10
+nameConstraints:
+{{- range .NameConstraints.Strings }}
+  - {{ . | YamlEscapeString }}
+{{- end -}}
 {{ end -}}
 `
 

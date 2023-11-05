@@ -1,6 +1,7 @@
 package app
 
 import (
+	"crypto"
 	"fmt"
 	"io"
 	"os"
@@ -29,6 +30,7 @@ import (
 	"github.com/IPA-CyberLab/kmgm/storage"
 	"github.com/IPA-CyberLab/kmgm/structflags"
 	"github.com/IPA-CyberLab/kmgm/version"
+	"github.com/IPA-CyberLab/kmgm/wcrypto"
 )
 
 func SimpleTimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
@@ -201,8 +203,12 @@ func New() *cli.App {
 			env.NowImpl = nowimpl.(func() time.Time)
 		}
 		if rr, ok := app.Metadata["Randr"]; ok {
-			logger.Sugar().Infof("rand source override: likely not crypto/rand.")
+			logger.Sugar().Errorf("!!!DANGEROUS - FOR TEST ONLY!!! rand source override: likely not crypto/rand.")
 			env.Randr = rr.(io.Reader)
+		}
+		if pks, ok := app.Metadata["PregenKeySupplier"]; ok {
+			logger.Sugar().Errorf("!!!DANGEROUS - FOR TEST ONLY!!! privkeygen override. super unsafe.")
+			env.PregenKeySupplier = pks.(func(wcrypto.KeyType) crypto.PrivateKey)
 		}
 
 		action.GlobalEnvironment = env

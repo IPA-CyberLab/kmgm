@@ -52,15 +52,20 @@ func Env(t *testing.T, basedir string, mockNow time.Time) *action.Environment {
 	}
 
 	env, err := action.NewEnvironment(fe, stor)
+	if err != nil {
+		panic(err)
+	}
 	env.Frontend = &frontend.NonInteractive{Logger: zap.L()}
 	env.NowImpl = mockNowImpl(mockNow)
+	env.Randr = MrandReader{}
+	env.PregenKeySupplier = GetPregenKey
 
 	return env
 }
 
-type mrandReader struct{}
+type MrandReader struct{}
 
-func (mrandReader) Read(p []byte) (int, error) {
+func (MrandReader) Read(p []byte) (int, error) {
 	return mrand.Read(p)
 }
 
@@ -74,7 +79,8 @@ func Run(t *testing.T, ctx context.Context, basedir string, configYaml []byte, a
 	logger := zap.New(zobs, zap.WithClock(mockClock{mockNow}))
 	a.Metadata["Logger"] = logger
 	a.Metadata["NowImpl"] = mockNowImpl(mockNow)
-	a.Metadata["Randr"] = mrandReader{}
+	a.Metadata["Randr"] = MrandReader{}
+	a.Metadata["PregenKeySupplier"] = GetPregenKey
 
 	var stdoutBuf bytes.Buffer
 	var stderrBuf bytes.Buffer
@@ -112,7 +118,7 @@ func Run(t *testing.T, ctx context.Context, basedir string, configYaml []byte, a
 	t.Logf("stdout: %s", stdoutBuf.String())
 	t.Logf("stderr: %s", stderrBuf.String())
 	for _, l := range logs.All() {
-		t.Logf("🔒%+v", l)
+		t.Logf("🔒 %s", l.Message)
 	}
 	return logs, err
 }

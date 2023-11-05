@@ -33,11 +33,12 @@ setup:
 `
 
 type Config struct {
-	Setup *setupcmd.Config `yaml:",inline"`
+	Setup *setupcmd.Config `yaml:"setup"`
 
 	Issues []*issuecmd.Config `yaml:"issues"`
 
-	// XXX_AppFlags is not here, since setup.Config covers that.
+	// This is here to avoid yaml.v3 Decoder with KnownFields(true) throwing error for valid AppFlags fields
+	XXX_AppFlags appflags.AppFlags `yaml:",inline"`
 }
 
 var ErrYamlMustBeProvided = errors.New("batch: yaml config must be provided. Try `kmgm -c [config.yaml] batch`")

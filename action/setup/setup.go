@@ -158,9 +158,16 @@ func Run(env *action.Environment, cfg *Config) error {
 		return err
 	}
 
-	priv, err := wcrypto.GenerateKey(env.Randr, cfg.KeyType, "CA", env.Logger)
-	if err != nil {
-		return err
+	var priv crypto.PrivateKey
+	ktype := cfg.KeyType
+	if env.PregenKeySupplier != nil {
+		slog.Errorf("!!!DANGEROUS - FOR TEST ONLY!!! Using unsafe, pregenerated key of type %v", ktype)
+		priv = env.PregenKeySupplier(ktype)
+	} else {
+		priv, err = wcrypto.GenerateKey(env.Randr, ktype, "CA", env.Logger)
+		if err != nil {
+			return err
+		}
 	}
 	if err := profile.WriteCAPrivateKey(priv); err != nil {
 		return err

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto"
-	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"fmt"
@@ -12,8 +11,6 @@ import (
 	"testing"
 	"text/template"
 	"time"
-
-	"go.uber.org/zap"
 
 	issuea "github.com/IPA-CyberLab/kmgm/action/issue"
 	setupa "github.com/IPA-CyberLab/kmgm/action/setup"
@@ -81,9 +78,8 @@ func TestSetup_Default(t *testing.T) {
 	yaml := []byte(fmt.Sprintf(`
 noDefault: false
 
-setup:
-  subject:
-    commonName: test
+subject:
+  commonName: test
 
 copyCACertPath: %s
 `, filepath.Join(basedir, "out/cacert.pem")))
@@ -100,12 +96,11 @@ func TestSetup_NoDefault(t *testing.T) {
 	yaml := []byte(`
 noDefault: true
 
-setup:
-  subject:
-    commonName: testCA
+subject:
+  commonName: testCA
 
-  keyType: ecdsa
-  validity: farfuture
+keyType: ecdsa
+validity: farfuture
 `)
 
 	logs, err := testkmgm.Run(t, context.Background(), basedir, yaml, []string{"setup"}, testkmgm.NowDefault)
@@ -124,11 +119,10 @@ func TestSetup_NoDefault_NoKeyType(t *testing.T) {
 	yaml := []byte(`
 noDefault: true
 
-setup:
-  subject:
-    commonName: testCA
+subject:
+  commonName: testCA
 
-  validity: farfuture
+validity: farfuture
 `)
 
 	logs, err := testkmgm.Run(t, context.Background(), basedir, yaml, []string{"setup"}, testkmgm.NowDefault)
@@ -230,18 +224,17 @@ func TestSetup_AlreadyExists(t *testing.T) {
 
 	t.Run("NoDefault_MatchingConfig", func(t *testing.T) {
 		yaml := []byte(`
-      setup:
-        subject:
-          commonName: test_CA_CN
-          organization: test_CA_Org
-          organizationalUnit: test_CA_OU
-          country: JP
-          locality: test_CA_L
-          province: test_CA_P
-          streetAddress: test_CA_SA
-          postalCode: test_CA_PC
-        keyType: rsa
-        validity: 1y
+      subject:
+        commonName: test_CA_CN
+        organization: test_CA_Org
+        organizationalUnit: test_CA_OU
+        country: JP
+        locality: test_CA_L
+        province: test_CA_P
+        streetAddress: test_CA_SA
+        postalCode: test_CA_PC
+      keyType: rsa
+      validity: 1y
 
       noDefault: true
       `)
@@ -252,18 +245,17 @@ func TestSetup_AlreadyExists(t *testing.T) {
 
 	t.Run("NoDefault_IncompatibleSubject", func(t *testing.T) {
 		yaml := []byte(`
-      setup:
-        subject:
-          commonName: test_CA_CN
-          organization: wrong_Org
-          organizationalUnit: test_CA_OU
-          country: JP
-          locality: test_CA_L
-          province: test_CA_P
-          streetAddress: test_CA_SA
-          postalCode: test_CA_PC
-        keyType: rsa
-        validity: 1y
+      subject:
+        commonName: test_CA_CN
+        organization: wrong_Org
+        organizationalUnit: test_CA_OU
+        country: JP
+        locality: test_CA_L
+        province: test_CA_P
+        streetAddress: test_CA_SA
+        postalCode: test_CA_PC
+      keyType: rsa
+      validity: 1y
 
       noDefault: true
       `)
@@ -273,18 +265,17 @@ func TestSetup_AlreadyExists(t *testing.T) {
 
 	t.Run("NoDefault_IncompatibleKeyType", func(t *testing.T) {
 		yaml := []byte(`
-      setup:
-        subject:
-          commonName: test_CA_CN
-          organization: test_CA_Org
-          organizationalUnit: test_CA_OU
-          country: JP
-          locality: test_CA_L
-          province: test_CA_P
-          streetAddress: test_CA_SA
-          postalCode: test_CA_PC
-        keyType: ecdsa
-        validity: 1y
+      subject:
+        commonName: test_CA_CN
+        organization: test_CA_Org
+        organizationalUnit: test_CA_OU
+        country: JP
+        locality: test_CA_L
+        province: test_CA_P
+        streetAddress: test_CA_SA
+        postalCode: test_CA_PC
+      keyType: ecdsa
+      validity: 1y
 
       noDefault: true
       `)
@@ -324,13 +315,12 @@ func TestIssue_Yaml(t *testing.T) {
 	setupCA(t, basedir)
 
 	yaml := []byte(`
-issue:
-  subject:
-    commonName: leaf_CN
-  keyType: rsa
-  keyUsage:
-    preset: tlsClientServer
-  validity: 30d
+subject:
+  commonName: leaf_CN
+keyType: rsa
+keyUsage:
+  preset: tlsClientServer
+validity: 30d
 
 renewBefore: 10d
 noDefault: true
@@ -361,13 +351,12 @@ func TestIssue_NoDefault_RequireRenewBeforeToBeSet(t *testing.T) {
 	setupCA(t, basedir)
 
 	yaml := []byte(`
-issue:
-  subject:
-    commonName: leaf_CN
-  keyType: rsa
-  keyUsage:
-    preset: tlsClientServer
-  validity: 30d
+subject:
+  commonName: leaf_CN
+keyType: rsa
+keyUsage:
+  preset: tlsClientServer
+validity: 30d
 
 noDefault: true
 `)
@@ -387,23 +376,16 @@ func TestIssue_WrongKeyType(t *testing.T) {
 	setupCA(t, basedir)
 
 	privPath := filepath.Join(basedir, "issue.priv.pem")
-	priv, err := wcrypto.GenerateKey(rand.Reader, wcrypto.KeySECP256R1, "", zap.L())
-	if err != nil {
-		t.Fatalf("%v", err)
-	}
-	if err := storage.WritePrivateKeyFile(privPath, priv); err != nil {
-		t.Fatalf("%v", err)
-	}
+	testkmgm.WritePregenKeyPEMToFile(wcrypto.KeySECP256R1, privPath)
 
 	certPath := filepath.Join(basedir, "issue.cert.pem")
 	yaml := []byte(fmt.Sprintf(`
-issue:
-  subject:
-    commonName: leaf_CN
-  keyType: rsa
-  keyUsage:
-    preset: tlsClientServer
-  validity: 30d
+subject:
+  commonName: leaf_CN
+keyType: rsa
+keyUsage:
+  preset: tlsClientServer
+validity: 30d
 
 certPath: %s
 privateKeyPath: %s
@@ -422,13 +404,7 @@ func TestIssue_UseExistingKey(t *testing.T) {
 	setupCA(t, basedir)
 
 	privPath := filepath.Join(basedir, "issue.priv.pem")
-	priv, err := wcrypto.GenerateKey(rand.Reader, wcrypto.KeyRSA4096, "", zap.L())
-	if err != nil {
-		t.Fatalf("%v", err)
-	}
-	if err := storage.WritePrivateKeyFile(privPath, priv); err != nil {
-		t.Fatalf("%v", err)
-	}
+	priv := testkmgm.WritePregenKeyPEMToFile(wcrypto.KeyRSA4096, privPath)
 
 	pub, err := wcrypto.ExtractPublicKey(priv)
 	if err != nil {
@@ -437,13 +413,12 @@ func TestIssue_UseExistingKey(t *testing.T) {
 
 	certPath := filepath.Join(basedir, "issue.cert.pem")
 	yaml := []byte(fmt.Sprintf(`
-issue:
-  subject:
-    commonName: leaf_CN
-  keyType: rsa
-  keyUsage:
-    preset: tlsClientServer
-  validity: 30d
+subject:
+  commonName: leaf_CN
+keyType: rsa
+keyUsage:
+  preset: tlsClientServer
+validity: 30d
 
 certPath: %s
 privateKeyPath: %s
@@ -529,13 +504,7 @@ func TestIssue_RenewCert(t *testing.T) {
 	setupCA(t, basedir)
 
 	privPath := filepath.Join(basedir, "issue.priv.pem")
-	priv, err := wcrypto.GenerateKey(rand.Reader, wcrypto.KeyRSA4096, "", zap.L())
-	if err != nil {
-		t.Fatalf("%v", err)
-	}
-	if err := storage.WritePrivateKeyFile(privPath, priv); err != nil {
-		t.Fatalf("%v", err)
-	}
+	priv := testkmgm.WritePregenKeyPEMToFile(wcrypto.KeyRSA4096, privPath)
 
 	pub, err := wcrypto.ExtractPublicKey(priv)
 	if err != nil {
@@ -545,14 +514,13 @@ func TestIssue_RenewCert(t *testing.T) {
 
 	t.Run("SubjectMismatch", func(t *testing.T) {
 		yaml := []byte(fmt.Sprintf(`
-      issue:
-        subject:
-          commonName: different_commonName
-        subjectAltNames: ["san.example", "192.168.0.10"]
-        keyType: rsa
-        keyUsage:
-          preset: tlsClientServer
-        validity: 30d
+      subject:
+        commonName: different_commonName
+      subjectAltNames: ["san.example", "192.168.0.10"]
+      keyType: rsa
+      keyUsage:
+        preset: tlsClientServer
+      validity: 30d
 
       certPath: %s
       privateKeyPath: %s
@@ -568,14 +536,13 @@ func TestIssue_RenewCert(t *testing.T) {
 
 	t.Run("SanMismatch", func(t *testing.T) {
 		yaml := []byte(fmt.Sprintf(`
-      issue:
-        subject:
-          commonName: test_leaf_CN
-        subjectAltNames: ["foo.example", "192.168.0.10"]
-        keyType: rsa
-        keyUsage:
-          preset: tlsClientServer
-        validity: 30d
+      subject:
+        commonName: test_leaf_CN
+      subjectAltNames: ["foo.example", "192.168.0.10"]
+      keyType: rsa
+      keyUsage:
+        preset: tlsClientServer
+      validity: 30d
 
       certPath: %s
       privateKeyPath: %s
@@ -591,20 +558,19 @@ func TestIssue_RenewCert(t *testing.T) {
 
 	t.Run("KeyUsageMismatch", func(t *testing.T) {
 		yaml := []byte(fmt.Sprintf(`
-      issue:
-        subject:
-          commonName: test_leaf_CN
-          organization: test_leaf_Org
-          organizationalUnit: test_leaf_OU
-          country: DE
-          locality: test_leaf_L
-          province: test_leaf_P
-          streetAddress: test_leaf_SA
-          postalCode: test_leaf_PC
-        keyType: rsa
-        keyUsage:
-          preset: tlsClient
-        validity: 30d
+      subject:
+        commonName: test_leaf_CN
+        organization: test_leaf_Org
+        organizationalUnit: test_leaf_OU
+        country: DE
+        locality: test_leaf_L
+        province: test_leaf_P
+        streetAddress: test_leaf_SA
+        postalCode: test_leaf_PC
+      keyType: rsa
+      keyUsage:
+        preset: tlsClient
+      validity: 30d
 
       certPath: %s
       privateKeyPath: %s
@@ -622,21 +588,20 @@ func TestIssue_RenewCert(t *testing.T) {
 
 	t.Run("RenewBefore_NotSpecified", func(t *testing.T) {
 		yaml := []byte(fmt.Sprintf(`
-      issue:
-        subject:
-          commonName: test_leaf_CN
-          organization: test_leaf_Org
-          organizationalUnit: test_leaf_OU
-          country: DE
-          locality: test_leaf_L
-          province: test_leaf_P
-          streetAddress: test_leaf_SA
-          postalCode: test_leaf_PC
-        subjectAltNames: ["san.example", "192.168.0.10"]
-        keyType: rsa
-        keyUsage:
-          preset: tlsClientServer
-        validity: 30d
+      subject:
+        commonName: test_leaf_CN
+        organization: test_leaf_Org
+        organizationalUnit: test_leaf_OU
+        country: DE
+        locality: test_leaf_L
+        province: test_leaf_P
+        streetAddress: test_leaf_SA
+        postalCode: test_leaf_PC
+      subjectAltNames: ["san.example", "192.168.0.10"]
+      keyType: rsa
+      keyUsage:
+        preset: tlsClientServer
+      validity: 30d
 
       certPath: %s
       privateKeyPath: %s
@@ -665,21 +630,20 @@ func TestIssue_RenewCert(t *testing.T) {
 		snOriginal := serialNumberStringOfCertAtPath(certPath)
 
 		yaml := []byte(fmt.Sprintf(`
-      issue:
-        subject:
-          commonName: test_leaf_CN
-          organization: test_leaf_Org
-          organizationalUnit: test_leaf_OU
-          country: DE
-          locality: test_leaf_L
-          province: test_leaf_P
-          streetAddress: test_leaf_SA
-          postalCode: test_leaf_PC
-        subjectAltNames: ["san.example", "192.168.0.10"]
-        keyType: rsa
-        keyUsage:
-          preset: tlsClientServer
-        validity: 30d
+      subject:
+        commonName: test_leaf_CN
+        organization: test_leaf_Org
+        organizationalUnit: test_leaf_OU
+        country: DE
+        locality: test_leaf_L
+        province: test_leaf_P
+        streetAddress: test_leaf_SA
+        postalCode: test_leaf_PC
+      subjectAltNames: ["san.example", "192.168.0.10"]
+      keyType: rsa
+      keyUsage:
+        preset: tlsClientServer
+      validity: 30d
 
       certPath: %s
       privateKeyPath: %s
@@ -708,21 +672,20 @@ func TestIssue_RenewCert(t *testing.T) {
 		snOriginal := serialNumberStringOfCertAtPath(certPath)
 
 		yaml := []byte(fmt.Sprintf(`
-      issue:
-        subject:
-          commonName: test_leaf_CN
-          organization: test_leaf_Org
-          organizationalUnit: test_leaf_OU
-          country: DE
-          locality: test_leaf_L
-          province: test_leaf_P
-          streetAddress: test_leaf_SA
-          postalCode: test_leaf_PC
-        subjectAltNames: ["san.example", "192.168.0.10"]
-        keyType: rsa
-        keyUsage:
-          preset: tlsClientServer
-        validity: 30d
+      subject:
+        commonName: test_leaf_CN
+        organization: test_leaf_Org
+        organizationalUnit: test_leaf_OU
+        country: DE
+        locality: test_leaf_L
+        province: test_leaf_P
+        streetAddress: test_leaf_SA
+        postalCode: test_leaf_PC
+      subjectAltNames: ["san.example", "192.168.0.10"]
+      keyType: rsa
+      keyUsage:
+        preset: tlsClientServer
+      validity: 30d
 
       certPath: %s
       privateKeyPath: %s
@@ -749,17 +712,16 @@ func Test_NameConstraints(t *testing.T) {
 	yaml := []byte(`
 noDefault: true
 
-setup:
-  subject:
-    commonName: testCA
+subject:
+  commonName: testCA
 
-  keyType: ecdsa
-  validity: farfuture
+keyType: ecdsa
+validity: farfuture
 
-  nameConstraints:
-  - my.example
-  - 192.168.10.0/24
-  - -bad.my.example
+nameConstraints:
+- my.example
+- 192.168.10.0/24
+- -bad.my.example
 `)
 
 	logs, err := testkmgm.Run(t, context.Background(), basedir, yaml, []string{"setup"}, testkmgm.NowDefault)
@@ -774,17 +736,16 @@ setup:
 		privPath := filepath.Join(basedir, "issue.priv.pem")
 		certPath := filepath.Join(basedir, "issue.cert.pem")
 		issueYaml := []byte(fmt.Sprintf(`
-issue:
-  subject:
-    commonName: leaf_CN
-  subjectAltNames:
-    - my.example
-    - sub.my.example
-    - 192.168.10.123
-  keyType: rsa
-  keyUsage:
-    preset: tlsClientServer
-  validity: 30d
+subject:
+  commonName: leaf_CN
+subjectAltNames:
+  - my.example
+  - sub.my.example
+  - 192.168.10.123
+keyType: rsa
+keyUsage:
+  preset: tlsClientServer
+validity: 30d
 
 renewBefore: immediately
 certPath: %s
@@ -833,19 +794,17 @@ setup:
   subject:
     commonName: batchTestCA
 
-copyCACertPath: {{ .BaseDirReal }}/out/ca.cert.pem
+  copyCACertPath: {{ .BaseDirReal }}/out/ca.cert.pem
 
 issues:
 - certPath: {{ .BaseDirReal }}/out/leaf1.cert.pem
   privateKeyPath: {{ .BaseDirReal }}/out/leaf1.priv.pem
-  issue:
-    subject:
-      commonName: leaf1
+  subject:
+    commonName: leaf1
 - certPath: {{ .BaseDirReal }}/out/leaf2.cert.pem
   privateKeyPath: {{ .BaseDirReal }}/out/leaf2.priv.pem
-  issue:
-    subject:
-      commonName: leaf2
+  subject:
+    commonName: leaf2
 `
 	tmplParsed := template.Must(template.New("batchTestCA").Parse(tmpl))
 
@@ -896,27 +855,25 @@ setup:
   validity: farfuture
   keyType: ecdsa
 
-copyCACertPath: {{ .BaseDirReal }}/out/ca.cert.pem
+  copyCACertPath: {{ .BaseDirReal }}/out/ca.cert.pem
 
 issues:
 - certPath: {{ .BaseDirReal }}/out/leaf1.cert.pem
   privateKeyPath: {{ .BaseDirReal }}/out/leaf1.priv.pem
   renewBefore: 10d
-  issue:
-    subject:
-      commonName: leaf1
-    keyUsage:
-      preset: tlsClientServer
-    validity: 30d
+  subject:
+    commonName: leaf1
+  keyUsage:
+    preset: tlsClientServer
+  validity: 30d
 - certPath: {{ .BaseDirReal }}/out/leaf2.cert.pem
   privateKeyPath: {{ .BaseDirReal }}/out/leaf2.priv.pem
   renewBefore: 10d
-  issue:
-    subject:
-      commonName: leaf2
-    keyUsage:
-      preset: tlsClientServer
-    validity: 30d
+  subject:
+    commonName: leaf2
+  keyUsage:
+    preset: tlsClientServer
+  validity: 30d
 `
 	tmplParsed := template.Must(template.New("batchTestCA").Parse(tmpl))
 

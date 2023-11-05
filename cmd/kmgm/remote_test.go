@@ -34,11 +34,10 @@ func TestServe_Issue(t *testing.T) {
 		yaml := []byte(`
 noDefault: true
 
-setup:
-  subject:
-    commonName: myCA
-  validity: farfuture
-  keyType: ecdsa
+subject:
+  commonName: myCA
+validity: farfuture
+keyType: ecdsa
 `)
 		logs, err := testkmgm.Run(t, context.Background(), ts.Basedir, yaml, []string{"--profile", "myprofile", "setup"}, testkmgm.NowDefault)
 		testutils.ExpectErr(t, err, nil)

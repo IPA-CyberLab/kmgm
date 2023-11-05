@@ -21,17 +21,17 @@ const stripBeforeLine = "# *** LINES ABOVE WILL BE AUTOMATICALLY DELETED ***"
 
 const configTemplateTextPrologue = `
 {{- define "subject" -}}
-  # The subject explains name, affiliation, and location of the target computer,
-  # user, or service the cert is issued against.
-  subject:
-    commonName: {{ .CommonName | YamlEscapeString }}
-    organization: {{ .Organization | YamlEscapeString }}
-    organizationalUnit: {{ .OrganizationalUnit | YamlEscapeString }}
-    country: {{ .Country | YamlEscapeString }}
-    locality: {{ .Locality | YamlEscapeString }}
-    province: {{ .Province | YamlEscapeString }}
-    streetAddress: {{ .StreetAddress | YamlEscapeString }}
-    postalCode: {{ .PostalCode | YamlEscapeString }}
+# The subject explains name, affiliation, and location of the target computer,
+# user, or service the cert is issued against.
+subject:
+  commonName: {{ .CommonName | YamlEscapeString }}
+  organization: {{ .Organization | YamlEscapeString }}
+  organizationalUnit: {{ .OrganizationalUnit | YamlEscapeString }}
+  country: {{ .Country | YamlEscapeString }}
+  locality: {{ .Locality | YamlEscapeString }}
+  province: {{ .Province | YamlEscapeString }}
+  streetAddress: {{ .StreetAddress | YamlEscapeString }}
+  postalCode: {{ .PostalCode | YamlEscapeString }}
 {{- end -}}
 {{- with .ErrorString -}}
 # Please address the following error:

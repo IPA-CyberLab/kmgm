@@ -2,6 +2,7 @@ package action
 
 import (
 	"context"
+	"crypto"
 	"crypto/rand"
 	"errors"
 	"fmt"
@@ -18,14 +19,16 @@ import (
 	"github.com/IPA-CyberLab/kmgm/remote"
 	"github.com/IPA-CyberLab/kmgm/remote/hello"
 	"github.com/IPA-CyberLab/kmgm/storage"
+	"github.com/IPA-CyberLab/kmgm/wcrypto"
 )
 
 type Environment struct {
-	Storage  *storage.Storage
-	Randr    io.Reader
-	Frontend frontend.Frontend
-	Logger   *zap.Logger
-	NowImpl  func() time.Time
+	Storage           *storage.Storage
+	Randr             io.Reader
+	Frontend          frontend.Frontend
+	Logger            *zap.Logger
+	NowImpl           func() time.Time
+	PregenKeySupplier func(wcrypto.KeyType) crypto.PrivateKey
 
 	ProfileName string
 

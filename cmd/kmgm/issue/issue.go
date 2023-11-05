@@ -122,9 +122,16 @@ func EnsurePrivateKey(env *action.Environment, ktype wcrypto.KeyType, privPath s
 	if ktype == wcrypto.KeyAny {
 		ktype = wcrypto.DefaultKeyType
 	}
-	priv, err := wcrypto.GenerateKey(env.Randr, ktype, "", env.Logger)
-	if err != nil {
-		return nil, err
+	var priv crypto.PrivateKey
+
+	if env.PregenKeySupplier != nil {
+		slog.Errorf("!!!DANGEROUS - FOR TEST ONLY!!! Using unsafe, pregenerated key of type %v", ktype)
+		priv = env.PregenKeySupplier(ktype)
+	} else {
+		priv, err = wcrypto.GenerateKey(env.Randr, ktype, "issue", env.Logger)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if err := storage.WritePrivateKeyFile(privPath, priv); err != nil {
 		return nil, err
@@ -182,59 +189,58 @@ const ConfigTemplateText = `
 # kmgm pki new cert config
 
 {{- with .Issue }}
-issue:
-  {{ template "subject" .Subject }}
+{{ template "subject" .Subject }}
 
-  # The subjectAltNames specifies hostnames or ipaddrs which the cert is issued
-  # against.
-  subjectAltNames:
-  {{- range .Names.DNSNames }}
-    - {{ . | YamlEscapeString }}
-  {{- end -}}
-  {{- range .Names.IPAddrs }}
-    - {{ printf "%v" . }}
-  {{- end }}
+# The subjectAltNames specifies hostnames or ipaddrs which the cert is issued
+# against.
+subjectAltNames:
+{{- range .Names.DNSNames }}
+  - {{ . | YamlEscapeString }}
+{{- end -}}
+{{- range .Names.IPAddrs }}
+  - {{ printf "%v" . }}
+{{- end }}
 
-  # validity specifies the lifetime the cert is valid for.
-  validity: {{ printf "%v" .Validity }}
-  # validity: 30d # valid for 30 days from now.
-  # validity: 2y # valid for 2 years from now.
-  # validity: 20220530 # valid until yyyyMMdd.
+# validity specifies the lifetime the cert is valid for.
+validity: {{ printf "%v" .Validity }}
+# validity: 30d # valid for 30 days from now.
+# validity: 2y # valid for 2 years from now.
+# validity: 20220530 # valid until yyyyMMdd.
 
-  # The type of private/public key pair.
-  keyType: {{ .KeyType }}
-  # keyType: any # Accept any key type, or create RSA key pair if not exists.
-  # keyType: rsa
-  # keyType: ecdsa
+# The type of private/public key pair.
+keyType: {{ .KeyType }}
+# keyType: any # Accept any key type, or create RSA key pair if not exists.
+# keyType: rsa
+# keyType: ecdsa
 
-  # keyUsage specifies the purpose of the key signed.
+# keyUsage specifies the purpose of the key signed.
+keyUsage:
+  # Default. The cert can be used for both TLS client and server.
+  {{ CommentOutIfFalse (eq .KeyUsage.Preset "tlsClientServer") -}}
+  preset: tlsClientServer
+
+  # The cert valid for TLS server only, and cannot be used for client auth.
+  {{ CommentOutIfFalse (eq .KeyUsage.Preset "tlsServer") -}}
+  preset: tlsServer
+
+  # The cert valid for TLS client auth only, and cannot be used for server
+  # auth.
+  {{ CommentOutIfFalse (eq .KeyUsage.Preset "tlsClient") -}}
+  preset: tlsClient
+
+  # For advanced users only.
   keyUsage:
-    # Default. The cert can be used for both TLS client and server.
-    {{ CommentOutIfFalse (eq .KeyUsage.Preset "tlsClientServer") -}}
-    preset: tlsClientServer
-
-    # The cert valid for TLS server only, and cannot be used for client auth.
-    {{ CommentOutIfFalse (eq .KeyUsage.Preset "tlsServer") -}}
-    preset: tlsServer
-
-    # The cert valid for TLS client auth only, and cannot be used for server
-    # auth.
-    {{ CommentOutIfFalse (eq .KeyUsage.Preset "tlsClient") -}}
-    preset: tlsClient
-
-    # For advanced users only.
-    keyUsage:
-    {{ CommentOutIfFalse (and (eq .KeyUsage.Preset "custom") (TestKeyUsageBit "keyEncipherment" .KeyUsage.KeyUsage)) -}}
-    - keyEncipherment
-    {{ CommentOutIfFalse (and (eq .KeyUsage.Preset "custom") (TestKeyUsageBit "digitalSignature" .KeyUsage.KeyUsage)) -}}
-    - digitalSignature
-    extKeyUsage:
-    {{ CommentOutIfFalse (and (eq .KeyUsage.Preset "custom") (HasExtKeyUsage "any" .KeyUsage.ExtKeyUsages)) -}}
-    - any
-    {{ CommentOutIfFalse (and (eq .KeyUsage.Preset "custom") (HasExtKeyUsage "clientAuth" .KeyUsage.ExtKeyUsages)) -}}
-    - clientAuth
-    {{ CommentOutIfFalse (and (eq .KeyUsage.Preset "custom") (HasExtKeyUsage "serverAuth" .KeyUsage.ExtKeyUsages)) -}}
-    - serverAuth
+  {{ CommentOutIfFalse (and (eq .KeyUsage.Preset "custom") (TestKeyUsageBit "keyEncipherment" .KeyUsage.KeyUsage)) -}}
+  - keyEncipherment
+  {{ CommentOutIfFalse (and (eq .KeyUsage.Preset "custom") (TestKeyUsageBit "digitalSignature" .KeyUsage.KeyUsage)) -}}
+  - digitalSignature
+  extKeyUsage:
+  {{ CommentOutIfFalse (and (eq .KeyUsage.Preset "custom") (HasExtKeyUsage "any" .KeyUsage.ExtKeyUsages)) -}}
+  - any
+  {{ CommentOutIfFalse (and (eq .KeyUsage.Preset "custom") (HasExtKeyUsage "clientAuth" .KeyUsage.ExtKeyUsages)) -}}
+  - clientAuth
+  {{ CommentOutIfFalse (and (eq .KeyUsage.Preset "custom") (HasExtKeyUsage "serverAuth" .KeyUsage.ExtKeyUsages)) -}}
+  - serverAuth
 {{ end }}
 
 # Private key file path:
@@ -257,7 +263,7 @@ type Config struct {
 	PrivateKeyPath string `yaml:"privateKeyPath" flags:"priv,private key input/output path,,path"`
 	CertPath       string `yaml:"certPath" flags:"cert,cert input/output path,,path"`
 
-	Issue *issue.Config `yaml:"issue" flags:""`
+	Issue *issue.Config `yaml:",inline" flags:""`
 
 	RenewBefore period.Days `yaml:"renewBefore" flags:"renew-before,when specified&comma; renew only if the certificate expires within specified threshold,,duration"`
 

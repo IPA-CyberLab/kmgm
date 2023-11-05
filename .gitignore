@@ -3,3 +3,5 @@ kmgm
 *.pem
 dist/
 cover.out
+trace.out
+*.pprof
