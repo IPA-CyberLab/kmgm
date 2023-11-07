@@ -24,12 +24,24 @@ const ConfigTemplateText = `
 ---
 # kmgm pki batch config
 
-profile: [profile]
-
 setup:
+  subject:
+    commonName: my CA
 
+  copyCACertPath: my-ca.crt
 
-# FIXME
+issues:
+- certPath: leaf1.cert.pem
+  privateKeyPath: leaf1.key.pem
+  subject:
+    commonName: leaf1
+  subjectAltNames:
+  - leaf1.example
+  keyType: ecdsa
+- certPath: leaf2.cert.pem
+  privateKeyPath: leaf2.key.pem
+  subject:
+    commonName: leaf2
 `
 
 type Config struct {
