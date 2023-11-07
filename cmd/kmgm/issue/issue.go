@@ -455,7 +455,7 @@ func WriteKubernetesSecret(ctx context.Context, env *action.Environment, cfg *Co
 	s := env.Logger.Sugar().Named("WriteKubernetesSecret")
 
 	if cfg.KubernetesSecretPath == "" {
-		s.Infof("No kubernetesSecretPath specified. Skipping.")
+		s.Debugf("No kubernetesSecretPath specified. Skipping.")
 		return nil
 	}
 	if cfg.KubernetesSecretName == "" {
