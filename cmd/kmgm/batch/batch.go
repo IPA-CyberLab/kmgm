@@ -15,6 +15,7 @@ import (
 	issuecmd "github.com/IPA-CyberLab/kmgm/cmd/kmgm/issue"
 	setupcmd "github.com/IPA-CyberLab/kmgm/cmd/kmgm/setup"
 	"github.com/IPA-CyberLab/kmgm/dname"
+	"github.com/IPA-CyberLab/kmgm/frontend"
 	"github.com/IPA-CyberLab/kmgm/period"
 	"github.com/IPA-CyberLab/kmgm/storage"
 	"github.com/IPA-CyberLab/kmgm/structflags"
@@ -42,6 +43,7 @@ issues:
   privateKeyPath: leaf2.key.pem
   subject:
     commonName: leaf2
+
 `
 
 type Config struct {
@@ -56,11 +58,6 @@ type Config struct {
 var ErrYamlMustBeProvided = errors.New("batch: yaml config must be provided. Try `kmgm -c [config.yaml] batch`")
 
 func Action(c *cli.Context) error {
-	cfgbs, ok := c.App.Metadata["config"]
-	if !ok {
-		return ErrYamlMustBeProvided
-	}
-
 	af := c.App.Metadata["AppFlags"].(*appflags.AppFlags)
 
 	env := action.GlobalEnvironment
@@ -79,6 +76,18 @@ func Action(c *cli.Context) error {
 		cfg = &Config{
 			Setup: setupcmd.EmptyConfig(),
 		}
+	}
+
+	if c.Bool("dump-template") {
+		if err := frontend.DumpTemplate(ConfigTemplateText, cfg); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	cfgbs, ok := c.App.Metadata["config"]
+	if !ok {
+		return ErrYamlMustBeProvided
 	}
 
 	decodeConfig := func() error {
