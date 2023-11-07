@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"math"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/urfave/cli/v2"
+	"go.uber.org/multierr"
 	"gopkg.in/yaml.v3"
 
 	"github.com/IPA-CyberLab/kmgm/action"
@@ -22,6 +24,7 @@ import (
 	"github.com/IPA-CyberLab/kmgm/frontend"
 	"github.com/IPA-CyberLab/kmgm/frontend/validate"
 	"github.com/IPA-CyberLab/kmgm/ipapi"
+	"github.com/IPA-CyberLab/kmgm/pemparser"
 	"github.com/IPA-CyberLab/kmgm/period"
 	"github.com/IPA-CyberLab/kmgm/storage"
 	"github.com/IPA-CyberLab/kmgm/structflags"
@@ -188,58 +191,63 @@ const ConfigTemplateText = `
 ---
 # kmgm pki new cert config
 
-{{- with .Issue }}
-{{ template "subject" .Subject }}
+{{ template "subject" .Issue.Subject }}
 
 # The subjectAltNames specifies hostnames or ipaddrs which the cert is issued
 # against.
 subjectAltNames:
-{{- range .Names.DNSNames }}
+{{- range .Issue.Names.DNSNames }}
   - {{ . | YamlEscapeString }}
 {{- end -}}
-{{- range .Names.IPAddrs }}
+{{- range .Issue.Names.IPAddrs }}
   - {{ printf "%v" . }}
 {{- end }}
 
 # validity specifies the lifetime the cert is valid for.
-validity: {{ printf "%v" .Validity }}
+validity: {{ printf "%v" .Issue.Validity }}
 # validity: 30d # valid for 30 days from now.
 # validity: 2y # valid for 2 years from now.
 # validity: 20220530 # valid until yyyyMMdd.
 
+# Renew certificate only if it expires within the specified threshold.
+renewBefore: {{ .RenewBefore }}
+# renewBefore: immediately # renew regardless of the expiration date.
+# renewBefore: 7d # renew only if the certificate is set to expire within 7 days.
+
 # The type of private/public key pair.
-keyType: {{ .KeyType }}
+keyType: {{ .Issue.KeyType }}
 # keyType: any # Accept any key type, or create RSA key pair if not exists.
 # keyType: rsa
 # keyType: ecdsa
 
 # keyUsage specifies the purpose of the key signed.
 keyUsage:
+{{ with .Issue.KeyUsage }}
   # Default. The cert can be used for both TLS client and server.
-  {{ CommentOutIfFalse (eq .KeyUsage.Preset "tlsClientServer") -}}
+  {{ CommentOutIfFalse (eq .Preset "tlsClientServer") -}}
   preset: tlsClientServer
 
   # The cert valid for TLS server only, and cannot be used for client auth.
-  {{ CommentOutIfFalse (eq .KeyUsage.Preset "tlsServer") -}}
+  {{ CommentOutIfFalse (eq .Preset "tlsServer") -}}
   preset: tlsServer
 
   # The cert valid for TLS client auth only, and cannot be used for server
   # auth.
-  {{ CommentOutIfFalse (eq .KeyUsage.Preset "tlsClient") -}}
+  {{ CommentOutIfFalse (eq .Preset "tlsClient") -}}
   preset: tlsClient
 
   # For advanced users only.
   keyUsage:
-  {{ CommentOutIfFalse (and (eq .KeyUsage.Preset "custom") (TestKeyUsageBit "keyEncipherment" .KeyUsage.KeyUsage)) -}}
+  {{ CommentOutIfFalse (and (eq .Preset "custom") (TestKeyUsageBit "keyEncipherment" .KeyUsage)) -}}
   - keyEncipherment
-  {{ CommentOutIfFalse (and (eq .KeyUsage.Preset "custom") (TestKeyUsageBit "digitalSignature" .KeyUsage.KeyUsage)) -}}
+  {{ CommentOutIfFalse (and (eq .Preset "custom") (TestKeyUsageBit "digitalSignature" .KeyUsage)) -}}
   - digitalSignature
   extKeyUsage:
-  {{ CommentOutIfFalse (and (eq .KeyUsage.Preset "custom") (HasExtKeyUsage "any" .KeyUsage.ExtKeyUsages)) -}}
+  {{ CommentOutIfFalse (and (eq .Preset "custom") (HasExtKeyUsage "any" .ExtKeyUsages)) -}}
   - any
-  {{ CommentOutIfFalse (and (eq .KeyUsage.Preset "custom") (HasExtKeyUsage "clientAuth" .KeyUsage.ExtKeyUsages)) -}}
+  {{ CommentOutIfFalse (and (eq .Preset "custom") (HasExtKeyUsage "clientAuth" .ExtKeyUsages)) -}}
   - clientAuth
-  {{ CommentOutIfFalse (and (eq .KeyUsage.Preset "custom") (HasExtKeyUsage "serverAuth" .KeyUsage.ExtKeyUsages)) -}}
+  {{ CommentOutIfFalse (and (eq .Preset "custom") (HasExtKeyUsage "serverAuth" .ExtKeyUsages)) -}}
   - serverAuth
 {{ end }}
 
@@ -253,15 +261,24 @@ privateKeyPath: {{ .PrivateKeyPath | YamlEscapeString }}
 #   If the file does not exist, kmgm issues a fresh one.
 certPath: {{ .CertPath | YamlEscapeString }}
 
-# Renew certificate only if it expires within the specified threshold.
-renewBefore: {{ .RenewBefore }}
-# renewBefore: immediately # renew regardless of the expiration date.
-# renewBefore: 7d # renew only if the certificate is set to expire within 7 days.
+# Kubernetes secret:
+#   If not empty, kmgm writes a kubernetes Secret yaml containing
+#   the CA certificate, issued certificate, and private key.
+kubernetesSecretPath: {{ .KubernetesSecretPath | YamlEscapeString }}
+
+#   The kubernetes Secret metadata.name
+kubernetesSecretName: {{ .KubernetesSecretName | YamlEscapeString }}
+#   The kubernetes Secret metadata.namespace
+kubernetesSecretNamespace: {{ .KubernetesSecretNamespace | YamlEscapeString }}
 `
 
 type Config struct {
 	PrivateKeyPath string `yaml:"privateKeyPath" flags:"priv,private key input/output path,,path"`
 	CertPath       string `yaml:"certPath" flags:"cert,cert input/output path,,path"`
+
+	KubernetesSecretPath      string `yaml:"kubernetesSecretPath" flags:"kubernetes-secret,if specified&comma; write the certificate and private key as kubernetes Secret yaml,,path"`
+	KubernetesSecretName      string `yaml:"kubernetesSecretName" flags:"kubernetes-secret-name,if specified&comma; use the specified name for the kubernetes Secret metadata.name,,string"`
+	KubernetesSecretNamespace string `yaml:"kubernetesSecretNamespace" flags:"kubernetes-secret-namespace,if specified&comma; use the specified name for the kubernetes Secret metadata.namespace,,string"`
 
 	Issue *issue.Config `yaml:",inline" flags:""`
 
@@ -430,8 +447,42 @@ func (c *Config) Verify(env *action.Environment, noDefault bool) error {
 
 type Strategy interface {
 	EnsureCA(ctx context.Context, env *action.Environment) error
-	CASubject(ctx context.Context, env *action.Environment) *dname.Config
+	CACert(ctx context.Context, env *action.Environment) *x509.Certificate
 	Issue(ctx context.Context, env *action.Environment, pub crypto.PublicKey, cfg *issue.Config) ([]byte, error)
+}
+
+func WriteKubernetesSecret(ctx context.Context, env *action.Environment, cfg *Config, cacert *x509.Certificate) error {
+	s := env.Logger.Sugar().Named("WriteKubernetesSecret")
+
+	if cfg.KubernetesSecretPath == "" {
+		s.Infof("No kubernetesSecretPath specified. Skipping.")
+		return nil
+	}
+	if cfg.KubernetesSecretName == "" {
+		return fmt.Errorf("kubernetesSecretName must be specified")
+	}
+	name := cfg.KubernetesSecretName
+	ns := cfg.KubernetesSecretNamespace // Note: can be empty.
+
+	priv, err := storage.ReadPrivateKeyFile(cfg.PrivateKeyPath)
+	if err != nil {
+		return err
+	}
+
+	cert, err := storage.ReadCertificateFile(cfg.CertPath)
+	if err != nil {
+		return err
+	}
+
+	cacertPem := pemparser.MarshalCertificateDer(cacert.Raw)
+	certPem := pemparser.MarshalCertificateDer(cert.Raw)
+	keyPem, err := pemparser.MarshalPrivateKey(priv)
+	if err != nil {
+		return err
+	}
+
+	bs := storage.KubernetesSecretFromCertAndKey(name, ns, cacertPem, certPem, keyPem)
+	return os.WriteFile(cfg.KubernetesSecretPath, bs, 0644)
 }
 
 func ActionImpl(strategy Strategy, c *cli.Context) error {
@@ -444,8 +495,10 @@ func ActionImpl(strategy Strategy, c *cli.Context) error {
 	if c.Bool("dump-template") || !af.NoDefault {
 		slog.Infof("Constructing default config.")
 
-		baseSubject := strategy.CASubject(c.Context, env)
-		if baseSubject == nil {
+		var baseSubject *dname.Config
+		if cacert := strategy.CACert(c.Context, env); cacert != nil {
+			baseSubject = dname.FromPkixName(cacert.Subject)
+		} else {
 			geo, err := ipapi.QueryCached(env.Storage.GeoIpCachePath(), env.Logger)
 			if err != nil {
 				slog.Infof("ipapi.QueryCached: %v", err)
@@ -499,6 +552,11 @@ func ActionImpl(strategy Strategy, c *cli.Context) error {
 		return fmt.Errorf("Failed to acquire certificate file path: %w", err)
 	}
 
+	cacert := strategy.CACert(c.Context, env)
+	if cacert == nil {
+		return errors.New("BUG: Failed to acquire CA cert, but we issued a cert from the CA.")
+	}
+
 	if err := frontend.EditStructWithVerifier(
 		env.Frontend, ConfigTemplateText, cfg, func(cfgI interface{}) error {
 			cfg := cfgI.(*Config)
@@ -507,10 +565,24 @@ func ActionImpl(strategy Strategy, c *cli.Context) error {
 			}
 			return nil
 		}); err != nil {
+		if errors.Is(err, CertStillValidErr{}) {
+			if errS := WriteKubernetesSecret(c.Context, env, cfg, cacert); err != nil {
+				return multierr.Append(err, errS)
+			}
+		}
+
 		return err
 	}
 
-	return IssuePrivateKeyAndCertificateFile(c.Context, env, strategy, cfg)
+	if err := IssuePrivateKeyAndCertificateFile(c.Context, env, strategy, cfg); err != nil {
+		return err
+	}
+
+	if err := WriteKubernetesSecret(c.Context, env, cfg, cacert); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func IssuePrivateKeyAndCertificateFile(ctx context.Context, env *action.Environment, strategy Strategy, cfg *Config) error {
@@ -549,11 +621,11 @@ func (l Local) EnsureCA(ctx context.Context, env *action.Environment) error {
 	return nil
 }
 
-func (l Local) CASubject(ctx context.Context, env *action.Environment) *dname.Config {
+func (l Local) CACert(ctx context.Context, env *action.Environment) *x509.Certificate {
 	// Inherit CA subject iff CA is setup.
 	now := env.NowImpl()
 	if st := l.Profile.Status(now); st.Code == storage.ValidCA {
-		return dname.FromPkixName(st.CACert.Subject)
+		return st.CACert
 	}
 	return nil
 }

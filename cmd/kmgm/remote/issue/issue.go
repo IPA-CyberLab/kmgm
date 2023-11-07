@@ -9,7 +9,6 @@ import (
 
 	"github.com/IPA-CyberLab/kmgm/action"
 	localissue "github.com/IPA-CyberLab/kmgm/cmd/kmgm/issue"
-	"github.com/IPA-CyberLab/kmgm/dname"
 	"github.com/IPA-CyberLab/kmgm/pb"
 	"github.com/IPA-CyberLab/kmgm/remote/issue"
 	"github.com/IPA-CyberLab/kmgm/structflags"
@@ -37,7 +36,7 @@ func (Remote) EnsureCA(ctx context.Context, env *action.Environment) error {
 	return nil
 }
 
-func (Remote) CASubject(ctx context.Context, env *action.Environment) *dname.Config {
+func (Remote) CACert(ctx context.Context, env *action.Environment) *x509.Certificate {
 	slog := env.Logger.Sugar()
 
 	if err := env.EnsureClientConn(ctx); err != nil {
@@ -60,7 +59,7 @@ func (Remote) CASubject(ctx context.Context, env *action.Environment) *dname.Con
 		return nil
 	}
 
-	return dname.FromPkixName(cert.Subject)
+	return cert
 }
 
 func (Remote) Issue(ctx context.Context, env *action.Environment, pub crypto.PublicKey, cfg *issue.Config) ([]byte, error) {

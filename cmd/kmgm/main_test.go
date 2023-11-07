@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"fmt"
+	"os"
 	"path/filepath"
 	"testing"
 	"text/template"
@@ -25,6 +26,7 @@ import (
 	"github.com/IPA-CyberLab/kmgm/storage"
 	"github.com/IPA-CyberLab/kmgm/testutils"
 	"github.com/IPA-CyberLab/kmgm/wcrypto"
+	"gopkg.in/yaml.v3"
 )
 
 func readCACert(t *testing.T, basedir string) *x509.Certificate {
@@ -113,6 +115,7 @@ validity: farfuture
 		t.Errorf("Expected no Country for noDefault: true setups, but got %+v", s.Country)
 	}
 }
+
 func TestSetup_NoDefault_NoKeyType(t *testing.T) {
 	basedir := testutils.PrepareBasedir(t)
 
@@ -368,6 +371,52 @@ noDefault: true
 	}, testkmgm.NowDefault)
 	testutils.ExpectErr(t, err, issue.RenewBeforeMustNotBeAutoIfNoDefaultErr)
 	testutils.ExpectFileNotExist(t, basedir, "issue.cert.pem")
+}
+
+func TestIssue_KubernetesSecret(t *testing.T) {
+	basedir := testutils.PrepareBasedir(t)
+
+	setupCA(t, basedir)
+
+	cfg := []byte(`
+subject:
+  commonName: leaf_CN
+keyType: ecdsa
+keyUsage:
+  preset: tlsClientServer
+validity: 30d
+renewBefore: 10d
+
+kubernetesSecretName: foo
+kubernetesSecretNamespace: bar
+
+noDefault: true
+`)
+
+	certPath := filepath.Join(basedir, "issue.cert.pem")
+	secretPath := filepath.Join(basedir, "secret.yaml")
+	_, err := testkmgm.Run(t, context.Background(), basedir, cfg, []string{"issue",
+		"--priv", filepath.Join(basedir, "issue.priv.pem"),
+		"--cert", certPath,
+		"--kubernetes-secret", secretPath,
+	}, testkmgm.NowDefault)
+	testutils.ExpectErr(t, err, nil)
+
+	cert, err := storage.ReadCertificateFile(certPath)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	_ = cert
+
+	bs, err := os.ReadFile(secretPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var secret interface{}
+	if err := yaml.Unmarshal(bs, &secret); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestIssue_WrongKeyType(t *testing.T) {
