@@ -10,21 +10,25 @@ kmgm is a [certificate authority](https://en.wikipedia.org/wiki/Certificate_auth
 
 ## Installation
 
-Linux:
+Linux, macOS:
 
-Install a pre-built binary:
+Install a pre-built binary of the latest version:
 
 ```sh
-VER=0.1.0; curl -vL https://github.com/IPA-CyberLab/kmgm/releases/download/v${VER}/kmgm_${VER}_Linux_x86_64.tar.gz | tar zx -C /usr/local/bin kmgm
+curl -L https://github.com/IPA-CyberLab/kmgm/releases/latest/download/kmgm_$(uname)_$(uname -m).tar.gz | sudo tar zx -C /usr/local/bin kmgm
+```
+
+Install a pre-built binary of a specific version:
+
+```sh
+VER=0.3.0; curl -L https://github.com/IPA-CyberLab/kmgm/releases/download/v${VER}/kmgm_$(uname)_$(uname -m).tar.gz | sudo tar zx -C /usr/local/bin kmgm
 ```
 
 or, to build it yourself:
 
 ```sh
-go get -v -u github.com/IPA-CyberLab/kmgm/cmd/... 
+go get -v -u github.com/IPA-CyberLab/kmgm/cmd/...
 ```
-
-Mac OSX, Windows: TBD
 
 ## Quick start
 
