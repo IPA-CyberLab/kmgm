@@ -30,8 +30,10 @@ func populateValueFromCliContext(v reflect.Value, c *cli.Context, parsed *Parsed
 		}
 	}
 	if DurationType.AssignableTo(v.Type()) {
-		flagVal := c.Duration(parsed.Name)
-		v.Set(reflect.ValueOf(flagVal))
+		if c.IsSet(parsed.Name) {
+			flagVal := c.Duration(parsed.Name)
+			v.Set(reflect.ValueOf(flagVal))
+		}
 		return nil
 	}
 
