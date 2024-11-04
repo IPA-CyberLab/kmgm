@@ -24,10 +24,12 @@ import (
 const ConfigTemplateText = `
 ---
 # kmgm pki batch config
+baseDir: /my/pki/dir
 
 setup:
   subject:
     commonName: my CA
+  validity: farfuture
 
   copyCACertPath: my-ca.crt
 
@@ -39,10 +41,13 @@ issues:
   subjectAltNames:
   - leaf1.example
   keyType: ecdsa
+  validity: farfuture
 - certPath: leaf2.cert.pem
   privateKeyPath: leaf2.key.pem
   subject:
     commonName: leaf2
+  validity: 90d
+  renewBefore: 7d
 
 `
 
