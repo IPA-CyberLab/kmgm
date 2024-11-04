@@ -425,7 +425,7 @@ func (c *Config) verifyExistingCert(env *action.Environment, pub crypto.PublicKe
 	}
 }
 
-var RenewBeforeMustNotBeAutoIfNoDefaultErr = errors.New("renewBefore must not be auto if noDefault is specified.")
+var RenewBeforeMustNotBeAutoIfNoDefaultErr = errors.New("renewBefore must not be auto if neither noDefault is specified nor validity is set to \"farfuture\".")
 
 func (c *Config) Verify(env *action.Environment, noDefault bool) error {
 	if err := c.Issue.Verify(env.NowImpl()); err != nil {
@@ -435,7 +435,7 @@ func (c *Config) Verify(env *action.Environment, noDefault bool) error {
 	if err != nil {
 		return err
 	}
-	if noDefault && c.RenewBefore == period.DaysAuto {
+	if noDefault && c.RenewBefore == period.DaysAuto && !c.Issue.Validity.IsFarFuture() {
 		return RenewBeforeMustNotBeAutoIfNoDefaultErr
 	}
 	if err := c.verifyExistingCert(env, pub); err != nil {

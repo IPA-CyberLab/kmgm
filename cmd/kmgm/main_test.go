@@ -373,6 +373,31 @@ noDefault: true
 	testutils.ExpectFileNotExist(t, basedir, "issue.cert.pem")
 }
 
+func TestIssue_NoDefault_AllowRenewBeforeNotSetIfValidityIsFarFuture(t *testing.T) {
+	basedir := testutils.PrepareBasedir(t)
+
+	setupCA(t, basedir)
+
+	yaml := []byte(`
+subject:
+  commonName: leaf_CN
+keyType: rsa
+keyUsage:
+  preset: tlsClientServer
+validity: farfuture
+
+noDefault: true
+`)
+
+	certPath := filepath.Join(basedir, "issue.cert.pem")
+	logs, err := testkmgm.Run(t, context.Background(), basedir, yaml, []string{"issue",
+		"--priv", filepath.Join(basedir, "issue.priv.pem"),
+		"--cert", certPath,
+	}, testkmgm.NowDefault)
+	testutils.ExpectErr(t, err, nil)
+	testutils.ExpectLogMessage(t, logs, "Generating leaf certificate... Done.")
+}
+
 func TestIssue_KubernetesSecret(t *testing.T) {
 	basedir := testutils.PrepareBasedir(t)
 

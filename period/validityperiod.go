@@ -36,6 +36,10 @@ func (p ValidityPeriod) GetNotAfter(base time.Time) time.Time {
 
 const notAfterLayout = "20060102"
 
+func (p ValidityPeriod) IsFarFuture() bool {
+	return p.NotAfter.Equal(FarFuture.NotAfter)
+}
+
 func (p ValidityPeriod) String() string {
 	if p.NotAfter.Equal(FarFuture.NotAfter) {
 		return "farfuture"
