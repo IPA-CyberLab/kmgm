@@ -13,7 +13,7 @@ require (
 	github.com/prometheus/client_golang v1.20.5
 	github.com/urfave/cli/v2 v2.27.5
 	go.uber.org/multierr v1.11.0
-	go.uber.org/zap v1.27.0
+	go.uber.org/zap v1.27.1
 	golang.org/x/net v0.30.0
 	golang.org/x/oauth2 v0.23.0
 	golang.org/x/sys v0.26.0
