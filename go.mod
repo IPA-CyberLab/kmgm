@@ -2,7 +2,7 @@ module github.com/IPA-CyberLab/kmgm
 
 go 1.21.0
 
-toolchain go1.23.1
+toolchain go1.25.6
 
 require (
 	github.com/gofrs/flock v0.12.1
