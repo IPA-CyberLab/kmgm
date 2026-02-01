@@ -53,8 +53,12 @@ func DefaultConfig(cnsuffix string, basecfg *Config) *Config {
 		basecfg = &Config{}
 	}
 
+	cn := hostname + cnsuffix
+	// trim cn to last 64 chars
+	cn = cn[len(cn)-min(len(cn), 64):]
+
 	return &Config{
-		CommonName:         hostname + cnsuffix,
+		CommonName:         cn,
 		Organization:       basecfg.Organization,
 		OrganizationalUnit: basecfg.OrganizationalUnit,
 		Country:            basecfg.Country,
