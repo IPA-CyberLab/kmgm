@@ -15,9 +15,9 @@ import (
 	"github.com/IPA-CyberLab/kmgm/dname"
 	"github.com/IPA-CyberLab/kmgm/frontend/validate"
 	"github.com/IPA-CyberLab/kmgm/keyusage"
+	"github.com/IPA-CyberLab/kmgm/period"
 	"github.com/IPA-CyberLab/kmgm/remote/issue"
 	"github.com/IPA-CyberLab/kmgm/storage"
-	"github.com/IPA-CyberLab/kmgm/period"
 	"github.com/IPA-CyberLab/kmgm/wcrypto"
 )
 
@@ -80,6 +80,11 @@ func IssueCertPair(ctx context.Context, env *action.Environment) error {
 	if err != nil {
 		return err
 	}
+
+	// Trim CN to last 64 bytes if longer.
+	cn := hostname
+	cn = cn[len(cn)-min(len(cn), 64):]
+
 	cfg := &localissue.Config{
 		Subject: &dname.Config{
 			CommonName: hostname,
