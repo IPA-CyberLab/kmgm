@@ -87,7 +87,7 @@ func IssueCertPair(ctx context.Context, env *action.Environment) error {
 
 	cfg := &localissue.Config{
 		Subject: &dname.Config{
-			CommonName: hostname,
+			CommonName: cn,
 		},
 		KeyUsage: keyusage.KeyUsageTLSClient,
 		Validity: period.FarFuture,
