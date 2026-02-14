@@ -13,14 +13,14 @@ import (
 	"syscall"
 	"time"
 
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
-	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
-	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
-	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
-	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
-	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	grpcprom "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus"
+	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/auth"
+	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
+	metautils "github.com/grpc-ecosystem/go-grpc-middleware/v2/metadata"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"golang.org/x/sys/unix"
 
 	"google.golang.org/grpc"
@@ -57,7 +57,7 @@ func grpcHttpMux(grpcServer *grpc.Server, httpHandler http.Handler) http.Handler
 
 const BearerPrefix = "bearer "
 
-func generateAuthFunc(authp *storage.Profile, tauth TokenAuthProvider) (grpc_auth.AuthFunc, error) {
+func generateAuthFunc(authp *storage.Profile, tauth TokenAuthProvider) (auth.AuthFunc, error) {
 	cacert, err := authp.ReadCACertificate()
 	if err != nil {
 		return nil, err
@@ -109,11 +109,39 @@ func generateAuthFunc(authp *storage.Profile, tauth TokenAuthProvider) (grpc_aut
 			}
 		}
 
-		grpc_ctxtags.Extract(ctx).Set("auth.sub", u.Name)
 		ctx = user.NewContext(ctx, u)
 		return ctx, nil
 	}
 	return authfunc, nil
+}
+
+func zapLogger(logger *zap.Logger) logging.Logger {
+	return logging.LoggerFunc(func(_ context.Context, level logging.Level, msg string, fields ...any) {
+		var zapLevel zapcore.Level
+		switch {
+		case level <= logging.LevelDebug:
+			zapLevel = zapcore.DebugLevel
+		case level <= logging.LevelInfo:
+			zapLevel = zapcore.InfoLevel
+		case level <= logging.LevelWarn:
+			zapLevel = zapcore.WarnLevel
+		default:
+			zapLevel = zapcore.ErrorLevel
+		}
+
+		zapFields := make([]zap.Field, 0, len(fields)/2)
+		for i := 0; i+1 < len(fields); i += 2 {
+			key, ok := fields[i].(string)
+			if !ok {
+				continue
+			}
+			zapFields = append(zapFields, zap.Any(key, fields[i+1]))
+		}
+
+		if ce := logger.Check(zapLevel, msg); ce != nil {
+			ce.Write(zapFields...)
+		}
+	})
 }
 
 type Server struct {
@@ -178,17 +206,15 @@ func StartServer(ctx context.Context, env *action.Environment, cfg *Config) (*Se
 		cfg.Bootstrap.LogHelpMessage(listenAddr, pubkeyhash)
 	}
 
-	uics := []grpc.UnaryServerInterceptor{
-		grpc_ctxtags.UnaryServerInterceptor(
-			grpc_ctxtags.WithFieldExtractor(grpc_ctxtags.TagBasedRequestFieldExtractor("log_fields")),
-		),
-		grpc_auth.UnaryServerInterceptor(authfunc),
-		grpc_zap.UnaryServerInterceptor(env.Logger),
-		grpc_prometheus.UnaryServerInterceptor,
-	}
+	serverMetrics := grpcprom.NewServerMetrics()
+
 	grpcServer := grpc.NewServer(
 		grpc.Creds(credentials.NewServerTLSFromCert(tlscert)),
-		grpc_middleware.WithUnaryServerChain(uics...),
+		grpc.ChainUnaryInterceptor(
+			auth.UnaryServerInterceptor(authfunc),
+			logging.UnaryServerInterceptor(zapLogger(env.Logger)),
+			serverMetrics.UnaryServerInterceptor(),
+		),
 	)
 	pb.RegisterHelloServiceServer(grpcServer, &helloService{})
 	pb.RegisterVersionServiceServer(grpcServer, &versionService{})
@@ -199,8 +225,10 @@ func StartServer(ctx context.Context, env *action.Environment, cfg *Config) (*Se
 	pb.RegisterCertificateServiceServer(grpcServer, certsvc)
 	reflection.Register(grpcServer)
 
+	serverMetrics.InitializeMetrics(grpcServer)
 	collector := exporter.NewCollector(env.Storage, env.Logger)
 	prometheus.MustRegister(collector)
+	prometheus.MustRegister(serverMetrics)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
