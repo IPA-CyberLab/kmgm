@@ -20,6 +20,7 @@ import (
 	"github.com/IPA-CyberLab/kmgm/remote/hello"
 	"github.com/IPA-CyberLab/kmgm/storage"
 	"github.com/IPA-CyberLab/kmgm/wcrypto"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 type Environment struct {
@@ -27,6 +28,7 @@ type Environment struct {
 	Randr             io.Reader
 	Frontend          frontend.Frontend
 	Logger            *zap.Logger
+	Registerer        prometheus.Registerer
 	NowImpl           func() time.Time
 	PregenKeySupplier func(wcrypto.KeyType) crypto.PrivateKey
 
@@ -40,11 +42,12 @@ func NewEnvironment(fe frontend.Frontend, stor *storage.Storage) (*Environment, 
 	l := zap.L()
 
 	cfg := &Environment{
-		Storage:  stor,
-		Randr:    rand.Reader,
-		Frontend: fe,
-		Logger:   l,
-		NowImpl:  time.Now,
+		Storage:    stor,
+		Randr:      rand.Reader,
+		Frontend:   fe,
+		Logger:     l,
+		Registerer: prometheus.DefaultRegisterer,
+		NowImpl:    time.Now,
 
 		ProfileName: storage.DefaultProfileName,
 	}
@@ -53,11 +56,12 @@ func NewEnvironment(fe frontend.Frontend, stor *storage.Storage) (*Environment, 
 
 func (env *Environment) Clone() *Environment {
 	return &Environment{
-		Storage:  env.Storage,
-		Randr:    env.Randr,
-		Frontend: env.Frontend,
-		Logger:   env.Logger,
-		NowImpl:  env.NowImpl,
+		Storage:    env.Storage,
+		Randr:      env.Randr,
+		Frontend:   env.Frontend,
+		Logger:     env.Logger,
+		Registerer: env.Registerer,
+		NowImpl:    env.NowImpl,
 
 		ProfileName: env.ProfileName,
 

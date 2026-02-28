@@ -17,7 +17,6 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/auth"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
 	metautils "github.com/grpc-ecosystem/go-grpc-middleware/v2/metadata"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -227,8 +226,12 @@ func StartServer(ctx context.Context, env *action.Environment, cfg *Config) (*Se
 
 	serverMetrics.InitializeMetrics(grpcServer)
 	collector := exporter.NewCollector(env.Storage, env.Logger)
-	prometheus.MustRegister(collector)
-	prometheus.MustRegister(serverMetrics)
+	if err := env.Registerer.Register(collector); err != nil {
+		return nil, fmt.Errorf("Failed to register Prometheus collector: %w", err)
+	}
+	if err := env.Registerer.Register(serverMetrics); err != nil {
+		return nil, fmt.Errorf("Failed to register Prometheus server metrics: %w", err)
+	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {

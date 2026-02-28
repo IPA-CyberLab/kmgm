@@ -58,11 +58,12 @@ func runTestServer(t *testing.T) (*action.Environment, *storage.Profile, func())
 	}
 
 	env := &action.Environment{
-		Storage:  stor,
-		Randr:    rand.Reader,
-		Frontend: &frontend.NonInteractive{Logger: TestLogger},
-		Logger:   TestLogger,
-		NowImpl:  time.Now,
+		Storage:    stor,
+		Randr:      rand.Reader,
+		Frontend:   &frontend.NonInteractive{Logger: TestLogger},
+		Logger:     TestLogger,
+		Registerer: r,
+		NowImpl:    time.Now,
 
 		ProfileName: authprofile.ProfileName,
 	}
