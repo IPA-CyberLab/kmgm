@@ -1,6 +1,6 @@
 module github.com/IPA-CyberLab/kmgm
 
-go 1.24.0
+go 1.25.0
 
 require (
 	github.com/gofrs/flock v0.13.0
@@ -12,7 +12,7 @@ require (
 	github.com/urfave/cli/v2 v2.27.7
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.27.1
-	golang.org/x/net v0.50.0
+	golang.org/x/net v0.51.0
 	golang.org/x/oauth2 v0.35.0
 	golang.org/x/sys v0.41.0
 	google.golang.org/grpc v1.79.1
