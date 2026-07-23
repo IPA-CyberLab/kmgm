@@ -7,7 +7,7 @@ require (
 	github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.1.0
 	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.3.3
 	github.com/manifoldco/promptui v0.9.0
-	github.com/mattn/go-isatty v0.0.20
+	github.com/mattn/go-isatty v0.0.24
 	github.com/prometheus/client_golang v1.23.2
 	github.com/urfave/cli/v2 v2.27.7
 	go.uber.org/multierr v1.11.0
