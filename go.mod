@@ -1,9 +1,9 @@
 module github.com/IPA-CyberLab/kmgm
 
-go 1.24.0
+go 1.25.0
 
 require (
-	github.com/gofrs/flock v0.13.0
+	github.com/gofrs/flock v0.13.1
 	github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.1.0
 	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.3.3
 	github.com/manifoldco/promptui v0.9.0
@@ -14,7 +14,7 @@ require (
 	go.uber.org/zap v1.27.1
 	golang.org/x/net v0.50.0
 	golang.org/x/oauth2 v0.35.0
-	golang.org/x/sys v0.41.0
+	golang.org/x/sys v0.47.0
 	google.golang.org/grpc v1.79.1
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/yaml.v3 v3.0.1
