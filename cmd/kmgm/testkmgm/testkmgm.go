@@ -38,7 +38,6 @@ func (c mockClock) Now() time.Time {
 
 func (c mockClock) NewTicker(duration time.Duration) *time.Ticker {
 	panic("not implemented")
-	return nil
 }
 
 func Env(t *testing.T, basedir string, mockNow time.Time) *action.Environment {

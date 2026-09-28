@@ -131,7 +131,7 @@ func (h *Handler) serveHTTPIfPossible(w http.ResponseWriter, r *http.Request) er
 	// FIXME[P3]: allow Authorization header
 	token := q.Get("token")
 	if token != h.token {
-		return httperr.ErrorWithStatusCode{http.StatusUnauthorized, errors.New("Invalid token.")}
+		return httperr.ErrorWithStatusCode{StatusCode: http.StatusUnauthorized, Err: errors.New("Invalid token.")}
 	}
 
 	profile, err := h.env.Storage.Profile(storage.DefaultProfileName)
@@ -150,13 +150,13 @@ func (h *Handler) serveHTTPIfPossible(w http.ResponseWriter, r *http.Request) er
 	if s := q.Get("ktype"); s != "" {
 		ktype, err = wcrypto.KeyTypeFromString(s)
 		if err != nil {
-			return httperr.ErrorWithStatusCode{http.StatusBadRequest, err}
+			return httperr.ErrorWithStatusCode{StatusCode: http.StatusBadRequest, Err: err}
 		}
 	}
 
 	commonName := q.Get("cn")
 	if commonName == "" {
-		return httperr.ErrorWithStatusCode{http.StatusBadRequest, errors.New("param \"cn\" is not specified.")}
+		return httperr.ErrorWithStatusCode{StatusCode: http.StatusBadRequest, Err: errors.New("param \"cn\" is not specified.")}
 	}
 	subject.CommonName = commonName
 
@@ -167,7 +167,7 @@ func (h *Handler) serveHTTPIfPossible(w http.ResponseWriter, r *http.Request) er
 
 	for _, e := range q["san"] {
 		if err := ns.Add(e); err != nil {
-			return httperr.ErrorWithStatusCode{http.StatusBadRequest, fmt.Errorf("Failed to parse subjectAltName entry %q: %w", e, err)}
+			return httperr.ErrorWithStatusCode{StatusCode: http.StatusBadRequest, Err: fmt.Errorf("Failed to parse subjectAltName entry %q: %w", e, err)}
 		}
 	}
 
@@ -175,10 +175,10 @@ func (h *Handler) serveHTTPIfPossible(w http.ResponseWriter, r *http.Request) er
 		raddrWithPort := r.RemoteAddr
 		raddr, _, err := net.SplitHostPort(raddrWithPort)
 		if err != nil {
-			return httperr.ErrorWithStatusCode{http.StatusBadRequest, fmt.Errorf("Failed to parse remoteip %q: %w", raddrWithPort, err)}
+			return httperr.ErrorWithStatusCode{StatusCode: http.StatusBadRequest, Err: fmt.Errorf("Failed to parse remoteip %q: %w", raddrWithPort, err)}
 		}
 		if err := ns.Add(raddr); err != nil {
-			return httperr.ErrorWithStatusCode{http.StatusBadRequest, fmt.Errorf("Failed to add remoteip %q as subjectAltName: %w", raddr, err)}
+			return httperr.ErrorWithStatusCode{StatusCode: http.StatusBadRequest, Err: fmt.Errorf("Failed to add remoteip %q as subjectAltName: %w", raddr, err)}
 		}
 	}
 
@@ -186,7 +186,7 @@ func (h *Handler) serveHTTPIfPossible(w http.ResponseWriter, r *http.Request) er
 	if s, set := q["days"]; set {
 		n, err := strconv.ParseUint(s[0], 10, 32)
 		if err != nil {
-			return httperr.ErrorWithStatusCode{http.StatusBadRequest, fmt.Errorf("Failed to parse days %q: %w", s[0], err)}
+			return httperr.ErrorWithStatusCode{StatusCode: http.StatusBadRequest, Err: fmt.Errorf("Failed to parse days %q: %w", s[0], err)}
 		}
 		days = uint(n)
 	}
@@ -194,7 +194,7 @@ func (h *Handler) serveHTTPIfPossible(w http.ResponseWriter, r *http.Request) er
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if h.allowedCountLeft <= 0 {
-		return httperr.ErrorWithStatusCode{http.StatusTooManyRequests, errors.New("/issue was invoked for more than its allowed count.")}
+		return httperr.ErrorWithStatusCode{StatusCode: http.StatusTooManyRequests, Err: errors.New("/issue was invoked for more than its allowed count.")}
 	}
 	h.allowedCountLeft -= 1
 
