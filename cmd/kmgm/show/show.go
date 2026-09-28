@@ -16,6 +16,7 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/IPA-CyberLab/kmgm/action"
+	"github.com/IPA-CyberLab/kmgm/keyusage"
 	"github.com/IPA-CyberLab/kmgm/pemparser"
 	"github.com/IPA-CyberLab/kmgm/storage"
 	"github.com/IPA-CyberLab/kmgm/storage/issuedb"
@@ -60,7 +61,6 @@ func PrintCertInfo(w io.Writer, cert *x509.Certificate, ft FormatType) {
 			pubkeyhash = fmt.Sprintf("Failed to compute public key hash: %s", err)
 		}
 
-		// FIXME[P2]: KeyUsage / Extensions info
 		fmt.Fprintf(w, `
 SerialNumber: %s
 Subject: %s
@@ -119,10 +119,17 @@ SignatureAlgorithm: %s
 				}
 			} else if e.Id.Equal(oidKeyUsage) {
 				fmt.Fprintf(w, "KeyUsage (marked critical: %t):\n", e.Critical)
-				fmt.Fprintf(w, "- FIXME[P1]: dump keyusage\n")
+				for _, name := range keyusage.KeyUsageNames(cert.KeyUsage) {
+					fmt.Fprintf(w, "+ %s\n", name)
+				}
 			} else if e.Id.Equal(oidExtKeyUsage) {
 				fmt.Fprintf(w, "ExtKeyUsage (marked critical: %t):\n", e.Critical)
-				fmt.Fprintf(w, "- FIXME[P1]: dump extkeyusage\n")
+				for _, eku := range cert.ExtKeyUsage {
+					fmt.Fprintf(w, "+ %s\n", keyusage.ExtKeyUsageName(eku))
+				}
+				for _, oid := range cert.UnknownExtKeyUsage {
+					fmt.Fprintf(w, "+ %s\n", oid)
+				}
 			} else if e.Id.Equal(oidNameConstraints) {
 				fmt.Fprintf(w, "Name Constraints (marked critical: %t):\n", e.Critical)
 				for _, p := range cert.PermittedDNSDomains {
