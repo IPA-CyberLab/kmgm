@@ -10,6 +10,7 @@ require (
 	github.com/mattn/go-isatty v0.0.24
 	github.com/prometheus/client_golang v1.24.1
 	github.com/urfave/cli/v2 v2.27.7
+	github.com/urfave/cli/v3 v3.14.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.28.0
 	golang.org/x/net v0.59.0
